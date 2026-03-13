@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32 BLE Monitor</title>
+
+<style>
+body{
+font-family:sans-serif;
+text-align:center;
+margin-top:40px;
+}
+
+button{
+font-size:22px;
+padding:12px 24px;
+}
+
+#status{
+font-size:24px;
+margin-top:30px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>ESP32 BLE Monitor</h2>
+
+<button onclick="connect()">CONNECT</button>
+
+<div id="status">waiting</div>
+
+<script>
+
+const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
+const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
+
+let characteristic;
+
+async function connect(){
+
+ try{
+
+  document.getElementById("status").innerText="select device";
+
+  const device = await navigator.bluetooth.requestDevice({
+   filters:[{services:[SERVICE_UUID]}]
+  });
+
+  document.getElementById("status").innerText="connecting";
+
+  const server = await device.gatt.connect();
+
+  const service = await server.getPrimaryService(SERVICE_UUID);
+
+  characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+  await characteristic.startNotifications();
+
+  characteristic.addEventListener(
+   'characteristicvaluechanged',
+   handleNotify
+  );
+
+  document.getElementById("status").innerText="connected";
+
+ }
+ catch(e){
+
+  document.getElementById("status").innerText="error "+e;
+
+ }
+
+}
+
+function handleNotify(event){
+
+ const decoder = new TextDecoder();
+
+ const value = decoder.decode(event.target.value);
+
+ document.getElementById("status").innerText=value;
+
+}
+
+</script>
+
+</body>
+</html>

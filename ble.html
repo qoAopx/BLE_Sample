@@ -3,153 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telemetry iPhone Edition</title>
+    <title>Telemetry Mobile</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
-        :root {
-            --bg-color: #0d0e11;
-            --accent-blue: #00e1ff;
-            --accent-green: #46ff21;
-            --accent-red: #ff4a4a;
-            --text-main: #f0f0f0;
-            --border-color: #3a3a3a;
-        }
-
         body { 
             margin: 0; padding: 0; 
-            background: var(--bg-color); 
-            color: var(--text-main);
-            font-family: 'SF Pro Display', Roboto, Helvetica, Arial, sans-serif;
+            background: #0d0e11; 
+            color: #f0f0f0;
+            font-family: sans-serif;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             height: 100vh;
         }
 
-        /* ヘッダー */
+        /* ヘッダー：iPhoneのノッチを考慮しつつコンパクトに */
         header {
-            height: 50px;
+            height: 60px;
             background: #151515;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 15px;
-            border-bottom: 2px solid var(--accent-blue);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            z-index: 10;
+            border-bottom: 2px solid #00e1ff;
         }
-
-        .title { font-size: 1rem; font-weight: bold; letter-spacing: 1.5px; color: var(--accent-blue); }
 
         .btn-group { display: flex; gap: 8px; }
         button {
-            padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-color);
-            background: #252525; color: white; cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: 0.2s;
+            padding: 8px 14px; border-radius: 6px; border: 1px solid #333;
+            background: #252525; color: white; cursor: pointer; font-weight: bold; font-size: 0.8rem;
         }
-        button:hover { background: #353535; border-color: var(--accent-blue); }
-        .btn-connect { background: #0056b3; border-color: var(--accent-blue); }
-        .btn-connect:hover { background: #006ee0; }
+        .btn-connect { background: #0056b3; border-color: #00e1ff; }
 
-        /* p5.js キャンバスコンテナ */
+        /* メインエリア */
         #canvas-container {
             flex: 1;
-            position: relative;
             width: 100%;
             height: 100%;
+            position: relative;
         }
 
-        /* ステータスバー（画面最下部） */
-        .status-bar {
-            height: 30px;
+        /* フッター：デバッグ・ステータス用 */
+        footer {
+            height: 40px;
             background: #111;
             padding: 0 15px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
             color: #777;
             border-top: 1px solid #222;
         }
-        #status-text { color: var(--accent-blue); font-weight: bold; }
-        #raw-data { font-family: 'Courier New', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
-
+        #status { color: #00e1ff; font-weight: bold; }
+        #count { font-family: monospace; }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="title">CAR TELEMETRY</div>
+    <div style="font-size: 0.9rem; font-weight: bold; color: #00e1ff;">TELEMETRY v2</div>
     <div class="btn-group">
         <button class="btn-connect" onclick="connectBLE()">CONNECT</button>
         <button onclick="disconnectBLE()">DISCON</button>
     </div>
 </header>
 
-<div id="canvas-container">
-    </div>
+<div id="canvas-container"></div>
 
-<div class="status-bar">
-    <div>SYS: <span id="status-text">DISCONNECTED</span></div>
-    <div id="raw-data">REC: waiting...</div>
-</div>
+<footer>
+    <div>Status: <span id="status">ready</span></div>
+    <div>Data: <span id="count">-</span></div>
+</footer>
 
 <script>
-// --- BLE Logic ---
+// --- [ble.js] のロジックを忠実に再現 ---
 const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
 const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
 let device = null;
+let characteristic = null;
+
+// 描画用変数
 let accelX = 0, accelY = 0, accelZ = 1.0; 
 let rollVal = 0, pitchVal = 0;
 let historyZ = [];
-let maxHistory = 50; // iPhoneの画面幅に合わせて履歴数を減らす
+const MAX_HISTORY = 50;
 
-async function connectBLE() {
-    try {
-        const st = document.getElementById("status-text");
-        st.innerText = "SEARCHING...";
-        st.style.color = "orange";
-        device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE_UUID] }] });
-        device.addEventListener('gattserverdisconnected', () => {
-            st.innerText = "DISCONNECTED";
-            st.style.color = "var(--accent-red)";
-        });
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(SERVICE_UUID);
-        const char = await service.getCharacteristic(CHARACTERISTIC_UUID);
-        await char.startNotifications();
-        char.addEventListener('characteristicvaluechanged', handleNotify);
-        st.innerText = "CONNECTED";
-        st.style.color = "var(--accent-green)";
-    } catch (e) {
-        const st = document.getElementById("status-text");
-        st.innerText = "ERROR";
-        st.style.color = "var(--accent-red)";
-        console.error(e);
-    }
+async function connectBLE(){
+ try{
+  document.getElementById("status").innerText="select device";
+  device = await navigator.bluetooth.requestDevice({
+   filters:[{services:[SERVICE_UUID]}]
+  });
+
+  device.addEventListener('gattserverdisconnected', onDisconnected);
+  document.getElementById("status").innerText="connecting";
+
+  const server = await device.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE_UUID);
+  characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+  await characteristic.startNotifications();
+  characteristic.addEventListener('characteristicvaluechanged', handleNotify);
+  document.getElementById("status").innerText="connected";
+ }
+ catch(e){
+  document.getElementById("status").innerText="error "+e;
+ }
 }
 
-function disconnectBLE() { if(device) device.gatt.disconnect(); }
-
-function handleNotify(event) {
-    const value = new TextDecoder().decode(event.target.value);
-    document.getElementById("raw-data").innerText = "REC: " + value;
-
-    const mX = value.match(/X:\s*(-?[\d.]+)/);
-    const mY = value.match(/Y:\s*(-?[\d.]+)/);
-    const mZ = value.match(/Z:\s*(-?[\d.]+)/);
-    const mR = value.match(/Roll:\s*(-?[\d.]+)/);
-    const mP = value.match(/Pitch:\s*(-?[\d.]+)/);
-
-    // 1000を1.0Gとして計算（スケーリング）
-    if (mX) accelX = parseFloat(mX[1]) / 1000;
-    if (mY) accelY = parseFloat(mY[1]) / 1000;
-    if (mZ) accelZ = parseFloat(mZ[1]) / 1000;
-    if (mR) rollVal = parseFloat(mR[1]);
-    if (mP) pitchVal = parseFloat(mP[1]);
-
-    // 履歴追加
-    historyZ.push(accelZ);
-    if (historyZ.length > maxHistory) historyZ.shift();
+function disconnectBLE(){
+ if(device && device.gatt.connected){
+  device.gatt.disconnect();
+ }
 }
 
-// --- p5.js Rendering ---
+function onDisconnected(){
+ document.getElementById("status").innerText="disconnected";
+ document.getElementById("count").innerText="-";
+}
+
+function handleNotify(event){
+ const decoder = new TextDecoder();
+ const value = decoder.decode(event.target.value);
+ document.getElementById("count").innerText = value;
+
+ // データのパース (X:1814,Y:1920,Z:2333,Roll: 7.70,Pitch: 7.61)
+ // \s* を使ってスペースを許容
+ const mX = value.match(/X:\s*(-?[\d.]+)/);
+ const mY = value.match(/Y:\s*(-?[\d.]+)/);
+ const mZ = value.match(/Z:\s*(-?[\d.]+)/);
+ const mRoll = value.match(/Roll:\s*(-?[\d.]+)/);
+ const mPitch = value.match(/Pitch:\s*(-?[\d.]+)/);
+
+ if(mX) accelX = parseFloat(mX[1]) / 1000;
+ if(mY) accelY = parseFloat(mY[1]) / 1000;
+ if(mZ) accelZ = parseFloat(mZ[1]) / 1000;
+ if(mRoll) rollVal = parseFloat(mRoll[1]);
+ if(mPitch) pitchVal = parseFloat(mPitch[1]);
+
+ historyZ.push(accelZ);
+ if (historyZ.length > MAX_HISTORY) historyZ.shift();
+}
+
+// --- [3d.js] ベースの描画ロジック ---
+function setup() {
+  let container = document.getElementById('canvas-container');
+  let canvas = createCanvas(container.offsetWidth, container.offsetHeight, WEBGL);
+  canvas.parent('canvas-container');
+}
+
+function draw() {
+  background(13, 14, 17); // 背景色
+  
+  let h = height;
+  let w = width;
+  let sectionH = h / 3;
+
+  // 1. 3D姿勢 (上段)
+  push();
+  translate(0, -sectionH + 20, 0); 
+  draw3DPosture();
+  pop();
+
+  // 2. G-Gダイアグラム (中段) - 位置を微調整
+  push();
+  translate(0, 0, 0);
+  drawGGDiagram(sectionH * 0.7);
+  pop();
+
+  // 3. 振動グラフ (下段) - 位置が重ならないよう調整
+  push();
+  translate(0, sectionH - 30, 0);
+  drawVibrationGraph(w - 60, sectionH * 0.6);
+  pop();
+}
+
+function draw3DPosture() {
+  let rollRad = radians(rollVal);
+  let pitchRad = radians(pitchVal);
+
+  ambientLight(150); 
+  pointLight(255, 255, 255, 0, -200, 200);
+  
+  push();
+  rotateX(pitchRad);
+  rotateZ(rollRad);
+  
+  // 車体
+  fill(0, 100, 200);
+  stroke(255);
+  strokeWeight(1);
+  box(140, 20, 220); 
+  
+  // フロントマーク
+  push();
+  translate(0, -15, -100);
+  fill(255, 255, 0);
+  noStroke();
+  box(60, 10, 30);
+  pop();
+  pop();
+}
+
+function drawGGDiagram(size) {
+  noFill();
+  stroke(100);
+  strokeWeight(2);
+  ellipse(0, 0, size); 
+  ellipse(0, 0, size * 0.5); // 0.5Gライン
+  line(-size/2, 0, size/2, 0);
+  line(0, -size/2, 0, size/2);
+
+  // 現在のGをプロット (1Gで円の縁にくるようにスケーリング)
+  let px = accelX * (size / 2);
+  let py = -accelY * (size / 2);
+
+  // 範囲外に点が消えないように制限
+  let d = dist(0, 0, px, py);
+  if (d > size/2) {
+    let angle = atan2(py, px);
+    px = cos(angle) * (size/2);
+    py = sin(angle) * (size/2);
+  }
+
+  fill(255, 50, 50);
+  noStroke();
+  ellipse(px, py, 16, 16);
+  
+  // ラベル
+  fill(150);
+  textSize(12);
+  textAlign(CENTER);
+  text("G-FORCE", 0, -size/2 - 10);
+}
+
+function drawVibrationGraph(gw, gh) {
+  // 基準線
+  stroke(100, 100);
+  strokeWeight(1);
+  line(-gw/2, 0, gw/2, 0);
+
+  // 振動データ
+  stroke(0, 255, 0);
+  strokeWeight(2);
+  noFill();
+  beginShape();
+  for (let i = 0; i < historyZ.length; i++) {
+    let x = map(i, 0, MAX_HISTORY, -gw/2, gw/2);
+    // 0.5G〜1.5Gの範囲を表示
+    let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
+    vertex(x, y);
+  }
+  endShape();
+
+  // ラベル
+  fill(150);
+  noStroke();
+  textSize(12);
+  textAlign(CENTER);
+  text("Z-AXIS VIBRATION", 0, -gh/2 - 10);
+}
+
+function windowResized() {
+  let container = document.getElementById('canvas-container');
+  resizeCanvas(container.offsetWidth, container.offsetHeight);
+}
+</script>
+</body>
+</html>

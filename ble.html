@@ -2,116 +2,140 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telemetry Vertical v3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BLE Telemetry V3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
+        /* 全体レイアウト */
         body { 
             margin: 0; padding: 0; 
             background: #0d0e11; 
             color: #f0f0f0;
-            font-family: sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             height: 100vh;
         }
 
-        /* iPhoneのノッチ等を考慮したヘッダー */
+        /* ヘッダー：ボタンが確実に押せるように z-index を高く設定 */
         header {
-            height: 60px;
+            height: 70px;
             background: #1a1b1f;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 15px;
             border-bottom: 2px solid #00e1ff;
-            box-sizing: border-box;
+            z-index: 100; /* 最前面に配置 */
         }
 
-        .btn-group { display: flex; gap: 10px; }
+        .btn-group { display: flex; gap: 8px; }
         button {
-            padding: 8px 15px; border-radius: 8px; border: 1px solid #444;
-            background: #2a2c32; color: white; cursor: pointer; font-weight: bold; font-size: 0.8rem;
+            padding: 10px 16px; border-radius: 8px; border: 1px solid #444;
+            background: #2a2c32; color: white; cursor: pointer; font-weight: bold; font-size: 0.85rem;
+            -webkit-appearance: none; /* iPhone用 */
         }
         .btn-connect { background: #0056b3; border-color: #00e1ff; }
+        button:active { opacity: 0.7; }
 
-        /* キャンバス領域 */
+        /* キャンバス領域：ヘッダーとフッターを除いた全域 */
         #canvas-container {
             flex: 1;
             width: 100%;
             position: relative;
+            z-index: 10;
         }
 
-        /* フッター：生データ表示用 */
+        /* フッター：ステータス表示 */
         footer {
             height: 50px;
             background: #111;
             padding: 0 15px;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             display: flex;
             flex-direction: column;
             justify-content: center;
             border-top: 1px solid #222;
-            color: #888;
         }
         #status { color: #00e1ff; font-weight: bold; }
-        #count { font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #count { font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #888; }
     </style>
 </head>
 <body>
 
 <header>
-    <div style="font-size: 1rem; font-weight: bold; color: #00e1ff;">TELEMETRY</div>
+    <div style="font-size: 0.9rem; font-weight: bold; color: #00e1ff;">CAR TELEMETRY</div>
     <div class="btn-group">
         <button class="btn-connect" onclick="connectBLE()">CONNECT</button>
-        <button onclick="disconnectBLE()">DISCONNECT</button>
+        <button onclick="disconnectBLE()">DISCON</button>
     </div>
 </header>
 
 <div id="canvas-container"></div>
 
 <footer>
-    <div>SYSTEM: <span id="status">ready</span></div>
-    <div id="count">DATA: -</div>
+    <div>STATUS: <span id="status">READY</span></div>
+    <div id="count">DATA: ---</div>
 </footer>
 
 <script>
-// --- BLE Logic (元スケッチを維持) ---
+// ==========================================
+// 1. BLE通信ロジック (ble.jsを完全復元)
+// ==========================================
+// ※実際のデバイスに合わせてUUIDを変更してください
 const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
 const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
+
 let device = null;
 let characteristic = null;
 
+// 描画用グローバル変数
 let accelX = 0, accelY = 0, accelZ = 1.0; 
 let rollVal = 0, pitchVal = 0;
 let historyZ = [];
-const MAX_HISTORY = 60;
+const MAX_HISTORY = 50;
 
-async function connectBLE(){
- try{
-  document.getElementById("status").innerText="select device...";
-  device = await navigator.bluetooth.requestDevice({ filters:[{services:[SERVICE_UUID]}] });
-  device.addEventListener('gattserverdisconnected', onDisconnected);
-  const server = await device.gatt.connect();
-  const service = await server.getPrimaryService(SERVICE_UUID);
-  characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-  await characteristic.startNotifications();
-  characteristic.addEventListener('characteristicvaluechanged', handleNotify);
-  document.getElementById("status").innerText="CONNECTED";
- } catch(e){
-  document.getElementById("status").innerText="ERROR: " + e;
- }
+async function connectBLE() {
+    console.log("Connect button clicked"); // デバッグ用
+    try {
+        const statusEl = document.getElementById("status");
+        statusEl.innerText = "SELECTING DEVICE...";
+        
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [SERVICE_UUID] }]
+        });
+
+        device.addEventListener('gattserverdisconnected', onDisconnected);
+        statusEl.innerText = "CONNECTING...";
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+        await characteristic.startNotifications();
+        characteristic.addEventListener('characteristicvaluechanged', handleNotify);
+        
+        statusEl.innerText = "CONNECTED";
+        statusEl.style.color = "#39ff14"; // Green
+    } catch (e) {
+        console.error(e);
+        document.getElementById("status").innerText = "ERROR: " + e.message;
+        document.getElementById("status").style.color = "#ff4a4a";
+    }
 }
 
-function disconnectBLE(){ if(device && device.gatt.connected) device.gatt.disconnect(); }
-function onDisconnected(){ document.getElementById("status").innerText="DISCONNECTED"; }
+function disconnectBLE() {
+    if (device && device.gatt.connected) {
+        device.gatt.disconnect();
+    }
+}
 
-function handleNotify(event){
- const decoder = new TextDecoder();
- const value = decoder.decode(event.target.value);
- document.getElementById("count").innerText = "DATA: " + value;
+function onDisconnected() {
+    const statusEl = document.getElementById("status");
+    statusEl.innerText = "DISCONNECTED";
+    statusEl.style.color = "#00e1ff";
+    document.getElementById("count").innerText = "DATA: ---";
+}
 
- const mX = value.match(/X:\s*(-?[\d.]+)/);
- const mY = value.match(/Y:\s*(-?[\d.]+)/);
- const mZ = value.match(/Z
+function handle

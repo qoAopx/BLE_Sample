@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Telemetry Mobile OK</title>
+    <title>Telemetry Mobile - 3D Single View</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
@@ -12,7 +12,9 @@
         .btn-c { background: #007bff; color: white; }
         .btn-d { background: #444; color: white; }
         #canvas-container { flex: 1; width: 100%; position: relative; }
-        footer { height: 40px; font-size: 10px; padding: 5px; background: #111; color: #888; border-top: 1px solid #333; overflow: hidden; }
+        footer { height: 50px; font-size: 11px; padding: 5px 15px; background: #111; color: #888; border-top: 1px solid #333; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+        #status { color: #00e1ff; font-weight: bold; }
+        #count { font-family: monospace; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
     </style>
 </head>
 <body>
@@ -30,13 +32,12 @@
 </footer>
 
 <script>
-// --- BLE設定 (UUIDをデバイスに合わせて確認してください) ---
+// --- BLE設定 ---
 const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
 const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
 
 let device = null, characteristic = null;
 let accelX = 0, accelY = 0, accelZ = 1.0, rollVal = 0, pitchVal = 0;
-let historyZ = [];
 
 async function connectBLE() {
     const status = document.getElementById("status");
@@ -65,7 +66,6 @@ function handleNotify(event) {
     const val = new TextDecoder().decode(event.target.value);
     document.getElementById("count").innerText = val;
     
-    // パース処理
     const mX = val.match(/X:\s*(-?[\d.]+)/);
     const mY = val.match(/Y:\s*(-?[\d.]+)/);
     const mZ = val.match(/Z:\s*(-?[\d.]+)/);
@@ -77,75 +77,43 @@ function handleNotify(event) {
     if (mZ) accelZ = parseFloat(mZ[1]) / 1000;
     if (mR) rollVal = parseFloat(mR[1]);
     if (mP) pitchVal = parseFloat(mP[1]);
-
-    historyZ.push(accelZ);
-    if (historyZ.length > 50) historyZ.shift();
 }
 
-// --- 描画レイアウト (縦に3つ並べる) ---
+// --- 描画レイアウト (3Dのみを中央に配置) ---
 function setup() {
     let container = document.getElementById('canvas-container');
     createCanvas(container.offsetWidth, container.offsetHeight, WEBGL).parent(container);
 }
 
 function draw() {
-    background(10);
-    let h = height / 3;
+    background(15);
 
-    // 1. 上段 (3D姿勢)
-    push();
-    translate(0, -h, 0);
-    draw3D();
-    pop();
-
-    // 2. 中段 (G-Gダイアグラム)
-    push();
-    translate(0, 0, 0);
-    drawGG(h * 0.7);
-    pop();
-
-    // 3. 下段 (振動グラフ)
-    push();
-    translate(0, h, 0);
-    drawGraph(width - 40, h * 0.6);
-    pop();
-}
-
-function draw3D() {
+    // ライティング設定
     ambientLight(150);
-    pointLight(255, 255, 255, 0, -100, 200);
+    pointLight(255, 255, 255, 0, -200, 200);
+
+    // WEBGLの座標中心(0,0,0)に配置
     push();
+    // iPhoneの縦長画面に合わせてモデルサイズを調整
+    let scaleFactor = min(width, height) / 300;
+    scale(scaleFactor);
+
+    // 姿勢回転
     rotateX(radians(pitchVal));
     rotateZ(radians(rollVal));
-    fill(0, 100, 255); stroke(255);
-    box(140, 20, 220); // 車体
-    pop();
-}
 
-function drawGG(size) {
-    noFill(); stroke(100);
-    ellipse(0, 0, size);
-    ellipse(0, 0, size * 0.5);
-    line(-size/2, 0, size/2, 0);
-    line(0, -size/2, 0, size/2);
+    // 車体本体
+    fill(0, 100, 255);
+    stroke(255);
+    strokeWeight(1);
+    box(160, 20, 240); 
     
-    let px = accelX * (size/2);
-    let py = -accelY * (size/2);
-    fill(255, 50, 50); noStroke();
-    ellipse(constrain(px, -size/2, size/2), constrain(py, -size/2, size/2), 15);
-}
-
-function drawGraph(gw, gh) {
-    stroke(50); noFill();
-    rect(-gw/2, -gh/2, gw, gh);
-    stroke(0, 255, 0);
-    beginShape();
-    for (let i = 0; i < historyZ.length; i++) {
-        let x = map(i, 0, 50, -gw/2, gw/2);
-        let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
-        vertex(x, y);
-    }
-    endShape();
+    // フロントマーク（黄色）
+    translate(0, -15, -100);
+    fill(255, 255, 0);
+    noStroke();
+    box(60, 12, 40);
+    pop();
 }
 
 function windowResized() {

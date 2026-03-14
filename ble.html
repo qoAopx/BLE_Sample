@@ -106,8 +106,8 @@ function draw() {
     scale(scaleFactor);
 
     // 姿勢回転
-    rotateX(radians(pitchVal));
-    rotateZ(radians(rollVal));
+    rotateX(radians(pitchVal)+Math.PI);
+    rotateZ(-radians(rollVal));
 
 // モデルの表示
   normalMaterial(); // または fill() など
@@ -121,40 +121,6 @@ function windowResized() {
     resizeCanvas(container.offsetWidth, container.offsetHeight);
 }
 
-// --- タイヤを描画するヘルパー関数 ---
-function setupTires() {
-  let tireParams = [
-    { x: -75, y: 15, z: -90 }, // 前左
-    { x: 75,  y: 15, z: -90 }, // 前右
-    { x: -75, y: 15, z: 90 },  // 後左
-    { x: 75,  y: 15, z: 90 }   // 後右
-  ];
-
-  fill(30);   // 黒（タイヤの色）
-  stroke(50); // 濃いグレー（トレッドパターン風）
-  strokeWeight(1);
-
-  for (let p of tireParams) {
-    push();
-    // 各タイヤの位置に移動
-    translate(p.x, p.y, p.z); 
-    // タイヤを横向きにする（WEBGLのboxは縦長なので回転させる）
-    rotateY(HALF_PI); 
-    // タイヤの形状（幅, 高さ, 奥行き）
-    // boxを潰して円盤状に見せる
-    box(60, 60, 25); 
-    
-    // ホイール（黄色）
-    push();
-    translate(0, 0, 0); 
-    fill(255, 255, 0); // 黄色
-    noStroke();
-    box(30, 30, 28); // タイヤより少し横に合わせる
-    pop();
-    
-    pop();
-  }
-}
 </script>
 </body>
 </html>

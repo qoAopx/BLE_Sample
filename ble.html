@@ -39,6 +39,13 @@ const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
 let device = null, characteristic = null;
 let accelX = 0, accelY = 0, accelZ = 1.0, rollVal = 0, pitchVal = 0;
 
+  let carModel;
+
+function preload() {
+  // 変換したobjファイルを読み込む
+  carModel = loadModel('buggy.obj', true); 
+}
+  
 async function connectBLE() {
     const status = document.getElementById("status");
     try {
@@ -102,51 +109,10 @@ function draw() {
     rotateX(radians(pitchVal));
     rotateZ(radians(rollVal));
 
-// ==========================================
-// バギーカーのデザイン
-// ==========================================
-
-// --- バギーのメインフレーム（青いカウル部分） ---
-push();
-fill(0, 100, 255); // 青
-stroke(255);       // 白い縁取り
-strokeWeight(1);
-// メインボディを少し薄く、長く
-box(140, 15, 260); 
-
-// --- フロントノーズ（黄色いカウル） ---
-push();
-// メインボディの前方上部に移動
-translate(0, -12, -110); 
-fill(255, 255, 0); // 黄色
-noStroke();
-// 少しシャープな形状に
-box(50, 10, 50); 
-pop(); // フロントノーズの座標系を抜ける
-pop(); // メインフレームの座標系を抜ける
-
-// --- ロールケージ（パイプフレーム構造） ---
-push();
-// ボディの上に配置
-translate(0, -25, 0); 
-fill(200);     // グレー（パイプの色）
-stroke(100);   // 濃いグレーの縁取り
-strokeWeight(1);
-
-// 横方向のパイプ（前・中・後）
-push(); translate(0, 0, -80); box(130, 5, 5); pop(); // 前
-push(); translate(0, 0, 0);   box(130, 5, 5); pop(); // 中
-push(); translate(0, 0, 80);  box(130, 5, 5); pop(); // 後
-
-// 縦方向のパイプ（左・右）
-push(); translate(-62, 0, 0); box(5, 5, 165); pop(); // 左
-push(); translate(62, 0, 0);  box(5, 5, 165); pop(); // 右
-pop(); // ロールケージの座標系を抜ける
-
-// --- タイヤ（4本追加） ---
-setupTires(); // タイヤの描画処理へ
-// ==========================================
-    
+// モデルの表示
+  normalMaterial(); // または fill() など
+  model(carModel);
+     
     pop();
 }
 

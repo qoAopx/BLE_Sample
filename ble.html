@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Telemetry Mobile OK</title>
+    <title>Car Telemetry OK</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
@@ -12,7 +12,9 @@
         .btn-c { background: #007bff; color: white; }
         .btn-d { background: #444; color: white; }
         #canvas-container { flex: 1; width: 100%; position: relative; }
-        footer { height: 40px; font-size: 10px; padding: 5px; background: #111; color: #888; border-top: 1px solid #333; overflow: hidden; }
+        footer { height: 60px; font-size: 11px; padding: 5px 15px; background: #111; color: #888; border-top: 1px solid #333; }
+        #status { color: #00e1ff; font-weight: bold; display: block; margin-bottom: 2px; }
+        #count { font-family: monospace; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -30,47 +32,48 @@
 </footer>
 
 <script>
-// --- BLE設定 (UUIDをデバイスに合わせて確認してください) ---
+// --- [ble.js] 接続ロジック ---
 const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
 const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
-
 let device = null, characteristic = null;
-let accelX = 0, accelY = 0, accelZ = 1.0, rollVal = 0, pitchVal = 0;
+
+// データ用変数
+let accelX = 0, accelY = 0, accelZ = 1.0; 
+let rollVal = 0, pitchVal = 0;
 let historyZ = [];
+const MAX_HISTORY = 100;
 
 async function connectBLE() {
-    const status = document.getElementById("status");
+    const st = document.getElementById("status");
     try {
-        status.innerText = "SELECTING...";
+        st.innerText = "SELECTING...";
         device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE_UUID] }] });
-        device.addEventListener('gattserverdisconnected', () => status.innerText = "DISCONNECTED");
-        
-        status.innerText = "CONNECTING...";
+        device.addEventListener('gattserverdisconnected', onDisconnected);
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(SERVICE_UUID);
         characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-        
         await characteristic.startNotifications();
         characteristic.addEventListener('characteristicvaluechanged', handleNotify);
-        status.innerText = "CONNECTED";
+        st.innerText = "CONNECTED";
     } catch (e) {
-        status.innerText = "ERROR: " + e;
-        console.error(e);
+        st.innerText = "ERROR: " + e;
     }
 }
 
 function disconnectBLE() { if (device) device.gatt.disconnect(); }
+function onDisconnected() { document.getElementById("status").innerText = "DISCONNECTED"; }
 
 function handleNotify(event) {
-    const val = new TextDecoder().decode(event.target.value);
-    document.getElementById("count").innerText = val;
-    
+    const decoder = new TextDecoder();
+    const value = decoder.decode(event.target.value);
+    document.getElementById("count").innerText = value;
+
     // パース処理
-    const mX = val.match(/X:\s*(-?[\d.]+)/);
-    const mY = val.match(/Y:\s*(-?[\d.]+)/);
-    const mZ = val.match(/Z:\s*(-?[\d.]+)/);
-    const mR = val.match(/Roll:\s*(-?[\d.]+)/);
-    const mP = val.match(/Pitch:\s*(-?[\d.]+)/);
+    const mX = value.match(/X:\s*(-?[\d.]+)/);
+    const mY = value.match(/Y:\s*(-?[\d.]+)/);
+    const mZ = value.match(/Z:\s*(-?[\d.]+)/);
+    const mR = value.match(/Roll:\s*(-?[\d.]+)/);
+    const mP = value.match(/Pitch:\s*(-?[\d.]+)/);
 
     if (mX) accelX = parseFloat(mX[1]) / 1000;
     if (mY) accelY = parseFloat(mY[1]) / 1000;
@@ -79,10 +82,10 @@ function handleNotify(event) {
     if (mP) pitchVal = parseFloat(mP[1]);
 
     historyZ.push(accelZ);
-    if (historyZ.length > 50) historyZ.shift();
+    if (historyZ.length > MAX_HISTORY) historyZ.shift();
 }
 
-// --- 描画レイアウト (縦に3つ並べる) ---
+// --- [3d.js] 描画ロジック ---
 function setup() {
     let container = document.getElementById('canvas-container');
     createCanvas(container.offsetWidth, container.offsetHeight, WEBGL).parent(container);
@@ -92,96 +95,72 @@ function draw() {
     background(10);
     let h = height / 3;
 
-    // 1. 上段 (3D姿勢)
+    // 1. 3D姿勢 (上段)
     push();
-    translate(0, -h, 0);
-    draw3D();
+    translate(0, -h + 20, 0); 
+    draw3DPosture();
     pop();
 
-    // 2. 中段 (G-Gダイアグラム)
+    // 2. G-Gダイアグラム (中段)
     push();
     translate(0, 0, 0);
-    drawGG(h * 0.7);
+    drawGGDiagram(h * 0.7);
     pop();
 
-    // 3. 下段 (振動グラフ)
+    // 3. 振動グラフ (下段)
     push();
-    translate(0, h, 0);
-    drawGraph(width - 40, h * 0.6);
+    // 枠の位置（translate）に波形を合わせる
+    translate(0, h - 20, 0);
+    drawVibrationGraph(width - 60, 60);
     pop();
 }
 
-function draw3D() {
-    ambientLight(150);
-    pointLight(255, 255, 255, 0, -100, 200);
+function draw3DPosture() {
+    ambientLight(180); 
+    pointLight(255, 255, 255, 0, -200, 200);
     push();
     rotateX(radians(pitchVal));
     rotateZ(radians(rollVal));
-    fill(0, 100, 255); stroke(255);
-    box(140, 20, 220); // 車体
+    fill(0, 120, 255); stroke(255); strokeWeight(1);
+    box(160, 20, 240); 
+    translate(0, -15, -100);
+    fill(255, 255, 0); noStroke();
+    box(60, 12, 40);
     pop();
 }
 
-function drawGG(size) {
-    noFill(); stroke(100);
-    ellipse(0, 0, size);
+function drawGGDiagram(size) {
+    noFill(); stroke(100); strokeWeight(2);
+    ellipse(0, 0, size); 
     ellipse(0, 0, size * 0.5);
     line(-size/2, 0, size/2, 0);
     line(0, -size/2, 0, size/2);
-    
-    let px = accelX * (size/2);
-    let py = -accelY * (size/2);
+
+    let px = accelX * (size * 0.5);
+    let py = -accelY * (size * 0.5);
     fill(255, 50, 50); noStroke();
-    ellipse(constrain(px, -size/2, size/2), constrain(py, -size/2, size/2), 15);
+    ellipse(constrain(px, -size/2, size/2), constrain(py, -size/2, size/2), 18);
 }
 
-// --- drawGraph関数のみ差し替えてください ---
-
-function drawGraph(gw, gh) {
-    // 1. ラベル（枠の少し上）
-    push();
-    fill(150);
-    noStroke();
-    textSize(10);
-    textAlign(LEFT);
-    text("Z-AXIS VIBRATION", -gw/2, -gh/2 - 10);
-    
-    // 1.5Gと0.5Gの補助テキスト
-    textSize(9);
-    text("1.5G", gw/2 + 5, -gh/2 + 5);
-    text("0.5G", gw/2 + 5, gh/2);
-    pop();
-
-    // 2. グラフの外枠（この中心を0として描画）
-    noFill(); 
-    stroke(60); 
-    strokeWeight(1);
+function drawVibrationGraph(gw, gh) {
+    // 枠の描画
+    noFill(); stroke(60); strokeWeight(1);
     rectMode(CENTER);
     rect(0, 0, gw, gh);
 
-    // 3. 1.0Gの中心線（枠の真ん中）
-    stroke(100, 100, 150, 100);
+    // 1.0G基準線
+    stroke(100, 100);
     line(-gw/2, 0, gw/2, 0);
 
-    // 4. データの描画
-    if (historyZ.length > 1) {
-        stroke(50, 255, 100); // 鮮やかな緑
-        strokeWeight(2);
-        noFill();
-        
+    // 波形の描画（枠の中心を0として計算）
+    if (historyZ.length > 0) {
+        stroke(0, 255, 0); strokeWeight(2); noFill();
         beginShape();
         for (let i = 0; i < historyZ.length; i++) {
-            // X軸：枠の左端(-gw/2)から右端(gw/2)へ
-            let x = map(i, 0, MAX_HISTORY - 1, -gw/2, gw/2);
-            
-            // Y軸：中心(0)を1.0Gとして、上下に gh/2 ずつ振る
-            // 加速度 0.5G 〜 1.5G の範囲を gh/2 〜 -gh/2 にマッピング
+            let x = map(i, 0, MAX_HISTORY, -gw/2, gw/2);
+            // 0.5G〜1.5Gの範囲を枠の高さにマッピング
             let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
-            
-            // 枠からはみ出さないように制限
-            let constrainedY = constrain(y, -gh/2 + 2, gh/2 - 2);
-            
-            vertex(x, constrainedY);
+            vertex(x, constrain(y, -gh/2, gh/2));
         }
         endShape();
     }

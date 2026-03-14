@@ -95,9 +95,9 @@ function setup() {
 function draw() {
     background(15);
 
-    // ライティング設定
-    ambientLight(150);
-    pointLight(255, 255, 255, 0, -200, 200);
+// 1. ライトの設定（これが無いと立体感が出ません）
+ambientLight(100);                // 全体を照らす弱い光
+directionalLight(255, 255, 255, 0.5, 1, -1); // 斜め上からの強い白光
 
     // WEBGLの座標中心(0,0,0)に配置
     push();
@@ -108,10 +108,14 @@ function draw() {
     // 姿勢回転
     rotateX(radians(pitchVal)+Math.PI);
     rotateZ(-radians(rollVal));
+// 2. 材質の設定
+noStroke();                       // 網目（ワイヤーフレーム）を消す
+fill(180);                        // 基本の色（0=黒, 255=白。180は明るいグレー）
+specularMaterial(255);            // 光の反射（ツヤ）を白に設定
+shininess(50);                    // 輝き具合（数値を大きくすると金属っぽくなります）
 
-// モデルの表示
-  normalMaterial(); // または fill() など
-  model(carModel);
+// 3. 描画
+model(carModel);
      
     pop();
 }

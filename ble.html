@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLE Car Telemetry 3D</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #141414; color: white; font-family: sans-serif; overflow: hidden; }
+        .controls { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #444; }
+        .status-area { margin-top: 10px; font-size: 0.9em; }
+        button { cursor: pointer; padding: 8px 16px; margin-right: 5px; border-radius: 4px; border: none; font-weight: bold; }
+        .btn-connect { background: #007bff; color: white; }
+        .btn-disconnect { background: #6c757d; color: white; }
+        #data-display { font-family: monospace; color: #00ff00; margin-top: 5px; display: block; }
+        #status { font-weight: bold; }
+        .status-connected { color: #28a745; }
+        .status-error { color: #dc3545; }
+    </style>
+</head>
+<body>
+
+<div class="controls">
+    <button class="btn-connect" onclick="connectBLE()">BLE 接続</button>
+    <button class="btn-disconnect" onclick="disconnectBLE()">接続解除</button>
+    <div class="status-area">
+        Status: <span id="status">切断済み</span><br>
+        Data: <span id="data-display">waiting...</span>
+    </div>
+</div>
+
+<script>
+// --- BLE設定 ---
+const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
+const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
+let device = null;
+let characteristic = null;
+
+// --- 受信データ保持用変数 ---
+let accelX = 0, accelY = 0, accelZ = 1.0; 
+let rollVal = 0, pitchVal = 0;
+let historyZ = [];
+const MAX_HISTORY = 100;
+
+// --- BLE関数 ---
+async function connectBLE() {
+    try {
+        const statusEl = document.getElementById("status");
+        statusEl.innerText = "デバイス選択中...";
+        
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [SERVICE_UUID] }]
+        });
+
+        device.addEventListener('gattserverdisconnected', onDisconnected);
+        
+        statusEl.innerText = "接続中...";
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+        await characteristic.startNotifications();
+        characteristic.addEventListener('characteristicvaluechanged', handleNotify);
+
+        statusEl.innerText = "接続完了";
+        statusEl.className = "status-connected";
+    } catch (e) {
+        console.error(e);
+        document.getElementById("status").innerText = "エラー: " + e.message;
+        document.getElementById("status").className = "status-error";
+    }
+}
+
+function disconnectBLE() {
+    if (device && device.gatt.connected) {
+        device.gatt.disconnect();
+    }
+}
+
+function onDisconnected() {
+    const statusEl = document.getElementById("status");
+    statusEl.innerText = "切断されました";
+    statusEl.className = "";
+}
+
+// データ受信とパース
+function handleNotify(event) {
+    const decoder = new TextDecoder();
+    const value = decoder.decode(event.target.value);
+    document.getElementById("data-display").innerText = value;
+
+    // フォーマット解析: X:1814,Y:1920,Z:2333,Roll: 7.70,Pitch: 7.61
+    // 正規表現で数値を抽出
+    const regX = /X:\s*(-?[\d.]+)/;
+    const regY = /Y:\s*(-?[\d.]+)/;
+    const regZ = /Z:\s*(-?[\d.]+)/;
+    const regRoll = /Roll:\s*(-?[\d.]+)/;
+    const regPitch = /Pitch:\s*(-?[\d.]+)/;
+
+    const mX = value.match(regX);
+    const mY = value.match(regY);
+    const mZ = value.match(regZ);
+    const mR = value.match(regRoll);
+    const mP = value.match(regPitch);
+
+    // 1000を1.0Gとして計算（スケーリング）
+    if (mX) accelX = parseFloat(mX[1]) / 1000;
+    if (mY) accelY = parseFloat(mY[1]) / 1000;
+    if (mZ) accelZ = parseFloat(mZ[1]) / 1000;
+    
+    // Roll/Pitchは度(degree)で来ていると想定
+    if (mR) rollVal = parseFloat(mR[1]);
+    if (mP) pitchVal = parseFloat(mP[1]);
+
+    // グラフ用履歴
+    historyZ.push(accelZ);
+    if (historyZ.length > MAX_HISTORY) historyZ.shift();
+}
+
+// --- p5.js 描画ロジック ---
+function setup() {
+    createCanvas(windowWidth, windowHeight, WEBGL);
+}
+
+function draw() {
+    background(20);
+    let h = height / 3;
+
+    // 1. 3D姿勢 (上段)
+    push();
+    translate(0, -h * 0.8, 0); 
+    draw3DPosture();
+    pop();
+
+    // 2. G-Gダイアグラム (中段)
+    push();
+    translate(0, 0, 0);
+    drawGGDiagram(h);
+    pop();
+
+    // 3. 振動グラフ (下段)
+    push();
+    translate(0, h * 0.8, 0);
+    drawVibrationGraph(h);
+    pop();
+}
+
+function draw3DPosture() {
+    ambientLight(150); 
+    pointLight(255, 255, 255, 200, -200, 300);
+    
+    push();
+    // 受信したRoll/Pitchを適用 (radiansに変換)
+    rotateX(radians(pitchVal));
+    rotateZ(radians(rollVal));
+    
+    // 車体本体
+    fill(0, 120, 255);
+    stroke(255);
+    strokeWeight(1);
+    box(180, 25, 280); 
+    
+    // フロント印
+    push();
+    translate(0, -18, -120);
+    fill(255, 255, 0);
+    noStroke();
+    box(80, 15, 40);
+    pop();
+    pop();
+}
+
+function drawGGDiagram(h) {
+    noFill();
+    stroke(100);
+    strokeWeight(2);
+    
+    // 目標円 (1G円)
+    ellipse(0, 0, h * 0.6); 
+    line(-h/2, 0, h/2, 0);
+    line(0, -h/2, 0, h/2);
+
+    // 現在のG (X, Y)
+    // 感度調整のため0.3倍のスケーリング
+    let px = accelX * (h * 0.3);
+    let py = -accelY * (h * 0.3);
+    
+    fill(255, 50, 50);
+    noStroke();
+    ellipse(px, py, 20, 20);
+    
+    // テキスト表示
+    fill(200);
+    textSize(16);
+    textAlign(CENTER);
+    text("G-Force (X-Y)", 0, h/2 - 10);
+}
+
+function drawVibrationGraph(h) {
+    stroke(100, 100);
+    strokeWeight(1);
+    line(-width/2 + 50, 0, width/2 - 50, 0);
+
+    stroke(0, 255, 0);
+    strokeWeight(2);
+    noFill();
+    beginShape();
+    for (let i = 0; i < historyZ.length; i++) {
+        let x = map(i, 0, MAX_HISTORY, -width/2 + 50, width/2 - 50);
+        // 0.5G〜1.5Gの範囲を見やすく表示
+        let y = map(historyZ[i], 0.5, 1.5, h/2 - 40, -h/2 + 40);
+        vertex(x, y);
+    }
+    endShape();
+    
+    fill(200);
+    noStroke();
+    textSize(16);
+    text("Vertical G (Z-Axis)", 0, h/2 - 10);
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+
+</body>
+</html>

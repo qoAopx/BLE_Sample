@@ -135,36 +135,57 @@ function drawGG(size) {
     ellipse(constrain(px, -size/2, size/2), constrain(py, -size/2, size/2), 15);
 }
 
+// --- drawGraph関数のみ差し替えてください ---
+
 function drawGraph(gw, gh) {
-    // グラフの外枠
+    // 1. ラベル（枠の少し上）
+    push();
+    fill(150);
+    noStroke();
+    textSize(10);
+    textAlign(LEFT);
+    text("Z-AXIS VIBRATION", -gw/2, -gh/2 - 10);
+    
+    // 1.5Gと0.5Gの補助テキスト
+    textSize(9);
+    text("1.5G", gw/2 + 5, -gh/2 + 5);
+    text("0.5G", gw/2 + 5, gh/2);
+    pop();
+
+    // 2. グラフの外枠（この中心を0として描画）
     noFill(); 
     stroke(60); 
     strokeWeight(1);
     rectMode(CENTER);
     rect(0, 0, gw, gh);
 
-    // 1.0Gの中心線
+    // 3. 1.0Gの中心線（枠の真ん中）
     stroke(100, 100, 150, 100);
     line(-gw/2, 0, gw/2, 0);
 
-    // データの描画
+    // 4. データの描画
     if (historyZ.length > 1) {
-        stroke(50, 255, 100);
+        stroke(50, 255, 100); // 鮮やかな緑
         strokeWeight(2);
         noFill();
+        
         beginShape();
         for (let i = 0; i < historyZ.length; i++) {
-            // X軸：履歴のインデックスを枠幅にマッピング
+            // X軸：枠の左端(-gw/2)から右端(gw/2)へ
             let x = map(i, 0, MAX_HISTORY - 1, -gw/2, gw/2);
-            // Y軸：加速度Z(0.5G〜1.5G)を枠高さ(-gh/2〜gh/2)にマッピング
-            // map(値, 入力最小, 入力最大, 出力最小, 出力最大)
+            
+            // Y軸：中心(0)を1.0Gとして、上下に gh/2 ずつ振る
+            // 加速度 0.5G 〜 1.5G の範囲を gh/2 〜 -gh/2 にマッピング
             let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
             
-            // 描画値が枠を超えないように制限(constrain)
-            vertex(x, constrain(y, -gh/2, gh/2));
+            // 枠からはみ出さないように制限
+            let constrainedY = constrain(y, -gh/2 + 2, gh/2 - 2);
+            
+            vertex(x, constrainedY);
         }
         endShape();
     }
+}
 
 function windowResized() {
     let container = document.getElementById('canvas-container');

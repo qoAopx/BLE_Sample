@@ -3,152 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BLE Telemetry V3</title>
+    <title>Telemetry Mobile OK</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
-        /* 全体レイアウト */
-        body { 
-            margin: 0; padding: 0; 
-            background: #0d0e11; 
-            color: #f0f0f0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        /* ヘッダー：ボタンが確実に押せるように z-index を高く設定 */
-        header {
-            height: 70px;
-            background: #1a1b1f;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 15px;
-            border-bottom: 2px solid #00e1ff;
-            z-index: 100; /* 最前面に配置 */
-        }
-
-        .btn-group { display: flex; gap: 8px; }
-        button {
-            padding: 10px 16px; border-radius: 8px; border: 1px solid #444;
-            background: #2a2c32; color: white; cursor: pointer; font-weight: bold; font-size: 0.85rem;
-            -webkit-appearance: none; /* iPhone用 */
-        }
-        .btn-connect { background: #0056b3; border-color: #00e1ff; }
-        button:active { opacity: 0.7; }
-
-        /* キャンバス領域：ヘッダーとフッターを除いた全域 */
-        #canvas-container {
-            flex: 1;
-            width: 100%;
-            position: relative;
-            z-index: 10;
-        }
-
-        /* フッター：ステータス表示 */
-        footer {
-            height: 50px;
-            background: #111;
-            padding: 0 15px;
-            font-size: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            border-top: 1px solid #222;
-        }
-        #status { color: #00e1ff; font-weight: bold; }
-        #count { font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #888; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        header { height: 60px; display: flex; align-items: center; justify-content: space-around; background: #111; border-bottom: 1px solid #333; z-index: 100; }
+        button { padding: 10px 20px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer; }
+        .btn-c { background: #007bff; color: white; }
+        .btn-d { background: #444; color: white; }
+        #canvas-container { flex: 1; width: 100%; position: relative; }
+        footer { height: 40px; font-size: 10px; padding: 5px; background: #111; color: #888; border-top: 1px solid #333; overflow: hidden; }
     </style>
 </head>
 <body>
 
 <header>
-    <div style="font-size: 0.9rem; font-weight: bold; color: #00e1ff;">CAR TELEMETRY</div>
-    <div class="btn-group">
-        <button class="btn-connect" onclick="connectBLE()">CONNECT</button>
-        <button onclick="disconnectBLE()">DISCON</button>
-    </div>
+    <button class="btn-c" onclick="connectBLE()">CONNECT</button>
+    <button class="btn-d" onclick="disconnectBLE()">DISCONNECT</button>
 </header>
 
 <div id="canvas-container"></div>
 
 <footer>
-    <div>STATUS: <span id="status">READY</span></div>
-    <div id="count">DATA: ---</div>
+    <div id="status">STATUS: READY</div>
+    <div id="count">DATA: -</div>
 </footer>
 
 <script>
-// ==========================================
-// 1. BLE通信ロジック (ble.jsを完全復元)
-// ==========================================
-// ※実際のデバイスに合わせてUUIDを変更してください
+// --- BLE設定 (UUIDをデバイスに合わせて確認してください) ---
 const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
 const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
 
-let device = null;
-let characteristic = null;
-
-// 描画用グローバル変数
-let accelX = 0, accelY = 0, accelZ = 1.0; 
-let rollVal = 0, pitchVal = 0;
+let device = null, characteristic = null;
+let accelX = 0, accelY = 0, accelZ = 1.0, rollVal = 0, pitchVal = 0;
 let historyZ = [];
-const MAX_HISTORY = 50;
 
 async function connectBLE() {
-    console.log("Connect button clicked"); // デバッグ用
+    const status = document.getElementById("status");
     try {
-        const statusEl = document.getElementById("status");
-        statusEl.innerText = "SELECTING DEVICE...";
+        status.innerText = "SELECTING...";
+        device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE_UUID] }] });
+        device.addEventListener('gattserverdisconnected', () => status.innerText = "DISCONNECTED");
         
-        device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [SERVICE_UUID] }]
-        });
-
-        device.addEventListener('gattserverdisconnected', onDisconnected);
-        statusEl.innerText = "CONNECTING...";
-
+        status.innerText = "CONNECTING...";
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(SERVICE_UUID);
         characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
+        
         await characteristic.startNotifications();
         characteristic.addEventListener('characteristicvaluechanged', handleNotify);
-        
-        statusEl.innerText = "CONNECTED";
-        statusEl.style.color = "#39ff14"; // Green
+        status.innerText = "CONNECTED";
     } catch (e) {
+        status.innerText = "ERROR: " + e;
         console.error(e);
-        document.getElementById("status").innerText = "ERROR: " + e.message;
-        document.getElementById("status").style.color = "#ff4a4a";
     }
 }
 
-function disconnectBLE() {
-    if (device && device.gatt.connected) {
-        device.gatt.disconnect();
-    }
-}
-
-function onDisconnected() {
-    const statusEl = document.getElementById("status");
-    statusEl.innerText = "DISCONNECTED";
-    statusEl.style.color = "#00e1ff";
-    document.getElementById("count").innerText = "DATA: ---";
-}
+function disconnectBLE() { if (device) device.gatt.disconnect(); }
 
 function handleNotify(event) {
-    const decoder = new TextDecoder();
-    const value = decoder.decode(event.target.value);
-    document.getElementById("count").innerText = "DATA: " + value;
-
-    // パース処理 (X:1814,Y:1920,Z:2333,Roll: 7.70,Pitch: 7.61)
-    const mX = value.match(/X:\s*(-?[\d.]+)/);
-    const mY = value.match(/Y:\s*(-?[\d.]+)/);
-    const mZ = value.match(/Z:\s*(-?[\d.]+)/);
-    const mR = value.match(/Roll:\s*(-?[\d.]+)/);
-    const mP = value.match(/Pitch:\s*(-?[\d.]+)/);
+    const val = new TextDecoder().decode(event.target.value);
+    document.getElementById("count").innerText = val;
+    
+    // パース処理
+    const mX = val.match(/X:\s*(-?[\d.]+)/);
+    const mY = val.match(/Y:\s*(-?[\d.]+)/);
+    const mZ = val.match(/Z:\s*(-?[\d.]+)/);
+    const mR = val.match(/Roll:\s*(-?[\d.]+)/);
+    const mP = val.match(/Pitch:\s*(-?[\d.]+)/);
 
     if (mX) accelX = parseFloat(mX[1]) / 1000;
     if (mY) accelY = parseFloat(mY[1]) / 1000;
@@ -157,115 +79,69 @@ function handleNotify(event) {
     if (mP) pitchVal = parseFloat(mP[1]);
 
     historyZ.push(accelZ);
-    if (historyZ.length > MAX_HISTORY) historyZ.shift();
+    if (historyZ.length > 50) historyZ.shift();
 }
 
-// ==========================================
-// 2. 3D描画ロジック (iPhone用 3段レイアウト)
-// ==========================================
+// --- 描画レイアウト (縦に3つ並べる) ---
 function setup() {
     let container = document.getElementById('canvas-container');
-    let canvas = createCanvas(container.offsetWidth, container.offsetHeight, WEBGL);
-    canvas.parent('canvas-container');
+    createCanvas(container.offsetWidth, container.offsetHeight, WEBGL).parent(container);
 }
 
 function draw() {
-    background(13, 14, 17);
-    
-    // 画面高さを3等分して位置を計算
-    let sectionH = height / 3;
+    background(10);
+    let h = height / 3;
 
-    // --- 上段：3DPosture ---
+    // 1. 上段 (3D姿勢)
     push();
-    translate(0, -sectionH, 0); 
-    draw3DPosture(sectionH);
+    translate(0, -h, 0);
+    draw3D();
     pop();
 
-    // --- 中段：GGDiagram ---
+    // 2. 中段 (G-Gダイアグラム)
     push();
     translate(0, 0, 0);
-    drawGGDiagram(sectionH * 0.75);
+    drawGG(h * 0.7);
     pop();
 
-    // --- 下段：VibrationGraph ---
+    // 3. 下段 (振動グラフ)
     push();
-    translate(0, sectionH, 0);
-    drawVibrationGraph(width - 50, sectionH * 0.6);
+    translate(0, h, 0);
+    drawGraph(width - 40, h * 0.6);
     pop();
 }
 
-function draw3DPosture(h) {
-    push();
-    fill(100); noStroke(); textSize(12); textAlign(CENTER);
-    text("3D ATTITUDE", 0, -h/2 + 15);
-    pop();
-
-    ambientLight(150); 
+function draw3D() {
+    ambientLight(150);
     pointLight(255, 255, 255, 0, -100, 200);
-    
     push();
-    scale(0.9); // iPhone画面に合わせて調整
     rotateX(radians(pitchVal));
     rotateZ(radians(rollVal));
-    
-    fill(0, 100, 220);
-    stroke(255);
-    strokeWeight(1);
-    box(140, 20, 220); 
-    
-    translate(0, -15, -100);
-    fill(255, 255, 0); noStroke();
-    box(60, 10, 30);
+    fill(0, 100, 255); stroke(255);
+    box(140, 20, 220); // 車体
     pop();
 }
 
-function drawGGDiagram(size) {
-    push();
-    fill(100); noStroke(); textSize(12); textAlign(CENTER);
-    text("G-G DIAGRAM", 0, -size/2 - 15);
-    pop();
-
-    noFill(); stroke(60); strokeWeight(1);
-    ellipse(0, 0, size); 
+function drawGG(size) {
+    noFill(); stroke(100);
+    ellipse(0, 0, size);
     ellipse(0, 0, size * 0.5);
     line(-size/2, 0, size/2, 0);
     line(0, -size/2, 0, size/2);
-
-    let px = accelX * (size / 2);
-    let py = -accelY * (size / 2);
-
-    // 円内にクリップ
-    let d = dist(0, 0, px, py);
-    if (d > size/2) {
-        let angle = atan2(py, px);
-        px = cos(angle) * (size/2);
-        py = sin(angle) * (size/2);
-    }
-
+    
+    let px = accelX * (size/2);
+    let py = -accelY * (size/2);
     fill(255, 50, 50); noStroke();
-    ellipse(px, py, 18, 18);
-    fill(255, 50, 50, 50);
-    ellipse(px, py, 30, 30);
+    ellipse(constrain(px, -size/2, size/2), constrain(py, -size/2, size/2), 15);
 }
 
-function drawVibrationGraph(gw, gh) {
-    push();
-    fill(100); noStroke(); textSize(12); textAlign(CENTER);
-    text("Z-AXIS VIBRATION", 0, -gh/2 - 15);
-    pop();
-
-    stroke(40); noFill();
+function drawGraph(gw, gh) {
+    stroke(50); noFill();
     rect(-gw/2, -gh/2, gw, gh);
-
-    // 1.0G基準
-    stroke(80, 80, 100);
-    let yMid = map(1.0, 0.5, 1.5, gh/2, -gh/2);
-    line(-gw/2, yMid, gw/2, yMid);
-
-    stroke(50, 255, 100); strokeWeight(2); noFill();
+    stroke(0, 255, 0);
     beginShape();
     for (let i = 0; i < historyZ.length; i++) {
-        let x = map(i, 0, MAX_HISTORY - 1, -gw/2, gw/2);
+        let x = map(i, 0, 50, -gw/2, gw/2);
         let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
         vertex(x, y);
     }

@@ -138,4 +138,144 @@ function onDisconnected() {
     document.getElementById("count").innerText = "DATA: ---";
 }
 
-function handle
+function handleNotify(event) {
+    const decoder = new TextDecoder();
+    const value = decoder.decode(event.target.value);
+    document.getElementById("count").innerText = "DATA: " + value;
+
+    // パース処理 (X:1814,Y:1920,Z:2333,Roll: 7.70,Pitch: 7.61)
+    const mX = value.match(/X:\s*(-?[\d.]+)/);
+    const mY = value.match(/Y:\s*(-?[\d.]+)/);
+    const mZ = value.match(/Z:\s*(-?[\d.]+)/);
+    const mR = value.match(/Roll:\s*(-?[\d.]+)/);
+    const mP = value.match(/Pitch:\s*(-?[\d.]+)/);
+
+    if (mX) accelX = parseFloat(mX[1]) / 1000;
+    if (mY) accelY = parseFloat(mY[1]) / 1000;
+    if (mZ) accelZ = parseFloat(mZ[1]) / 1000;
+    if (mR) rollVal = parseFloat(mR[1]);
+    if (mP) pitchVal = parseFloat(mP[1]);
+
+    historyZ.push(accelZ);
+    if (historyZ.length > MAX_HISTORY) historyZ.shift();
+}
+
+// ==========================================
+// 2. 3D描画ロジック (iPhone用 3段レイアウト)
+// ==========================================
+function setup() {
+    let container = document.getElementById('canvas-container');
+    let canvas = createCanvas(container.offsetWidth, container.offsetHeight, WEBGL);
+    canvas.parent('canvas-container');
+}
+
+function draw() {
+    background(13, 14, 17);
+    
+    // 画面高さを3等分して位置を計算
+    let sectionH = height / 3;
+
+    // --- 上段：3DPosture ---
+    push();
+    translate(0, -sectionH, 0); 
+    draw3DPosture(sectionH);
+    pop();
+
+    // --- 中段：GGDiagram ---
+    push();
+    translate(0, 0, 0);
+    drawGGDiagram(sectionH * 0.75);
+    pop();
+
+    // --- 下段：VibrationGraph ---
+    push();
+    translate(0, sectionH, 0);
+    drawVibrationGraph(width - 50, sectionH * 0.6);
+    pop();
+}
+
+function draw3DPosture(h) {
+    push();
+    fill(100); noStroke(); textSize(12); textAlign(CENTER);
+    text("3D ATTITUDE", 0, -h/2 + 15);
+    pop();
+
+    ambientLight(150); 
+    pointLight(255, 255, 255, 0, -100, 200);
+    
+    push();
+    scale(0.9); // iPhone画面に合わせて調整
+    rotateX(radians(pitchVal));
+    rotateZ(radians(rollVal));
+    
+    fill(0, 100, 220);
+    stroke(255);
+    strokeWeight(1);
+    box(140, 20, 220); 
+    
+    translate(0, -15, -100);
+    fill(255, 255, 0); noStroke();
+    box(60, 10, 30);
+    pop();
+}
+
+function drawGGDiagram(size) {
+    push();
+    fill(100); noStroke(); textSize(12); textAlign(CENTER);
+    text("G-G DIAGRAM", 0, -size/2 - 15);
+    pop();
+
+    noFill(); stroke(60); strokeWeight(1);
+    ellipse(0, 0, size); 
+    ellipse(0, 0, size * 0.5);
+    line(-size/2, 0, size/2, 0);
+    line(0, -size/2, 0, size/2);
+
+    let px = accelX * (size / 2);
+    let py = -accelY * (size / 2);
+
+    // 円内にクリップ
+    let d = dist(0, 0, px, py);
+    if (d > size/2) {
+        let angle = atan2(py, px);
+        px = cos(angle) * (size/2);
+        py = sin(angle) * (size/2);
+    }
+
+    fill(255, 50, 50); noStroke();
+    ellipse(px, py, 18, 18);
+    fill(255, 50, 50, 50);
+    ellipse(px, py, 30, 30);
+}
+
+function drawVibrationGraph(gw, gh) {
+    push();
+    fill(100); noStroke(); textSize(12); textAlign(CENTER);
+    text("Z-AXIS VIBRATION", 0, -gh/2 - 15);
+    pop();
+
+    stroke(40); noFill();
+    rect(-gw/2, -gh/2, gw, gh);
+
+    // 1.0G基準
+    stroke(80, 80, 100);
+    let yMid = map(1.0, 0.5, 1.5, gh/2, -gh/2);
+    line(-gw/2, yMid, gw/2, yMid);
+
+    stroke(50, 255, 100); strokeWeight(2); noFill();
+    beginShape();
+    for (let i = 0; i < historyZ.length; i++) {
+        let x = map(i, 0, MAX_HISTORY - 1, -gw/2, gw/2);
+        let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
+        vertex(x, y);
+    }
+    endShape();
+}
+
+function windowResized() {
+    let container = document.getElementById('canvas-container');
+    resizeCanvas(container.offsetWidth, container.offsetHeight);
+}
+</script>
+</body>
+</html>

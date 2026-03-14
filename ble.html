@@ -3,226 +3,315 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLE Car Telemetry 3D</title>
+    <title>Advanced Car Telemetry</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #141414; color: white; font-family: sans-serif; overflow: hidden; }
-        .controls { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #444; }
-        .status-area { margin-top: 10px; font-size: 0.9em; }
-        button { cursor: pointer; padding: 8px 16px; margin-right: 5px; border-radius: 4px; border: none; font-weight: bold; }
-        .btn-connect { background: #007bff; color: white; }
-        .btn-disconnect { background: #6c757d; color: white; }
-        #data-display { font-family: monospace; color: #00ff00; margin-top: 5px; display: block; }
-        #status { font-weight: bold; }
-        .status-connected { color: #28a745; }
-        .status-error { color: #dc3545; }
+        :root {
+            --bg-color: #0a0b0d;
+            --panel-bg: rgba(25, 27, 31, 0.85);
+            --accent-blue: #00d2ff;
+            --accent-green: #39ff14;
+            --accent-red: #ff3e3e;
+            --text-main: #e0e0e0;
+            --border-color: #333;
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            background: var(--bg-color); 
+            color: var(--text-main);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ヘッダーエリア */
+        header {
+            height: 60px;
+            background: #111;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-bottom: 2px solid var(--accent-blue);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .title { font-size: 1.2rem; font-weight: bold; letter-spacing: 2px; color: var(--accent-blue); }
+
+        .btn-group { display: flex; gap: 10px; }
+        button {
+            padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color);
+            background: #222; color: white; cursor: pointer; font-weight: bold; transition: 0.3s;
+        }
+        button:hover { background: #333; border-color: var(--accent-blue); }
+        .btn-connect { background: #004a99; border-color: var(--accent-blue); }
+        .btn-connect:hover { background: #0066cc; }
+
+        /* メインコンテンツ配置 */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            flex: 1;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            border-left: 3px solid var(--accent-blue);
+            padding-left: 8px;
+        }
+
+        /* 数値表示 */
+        .stat-item { margin-bottom: 20px; }
+        .stat-label { font-size: 0.75rem; color: #aaa; }
+        .stat-value { font-size: 1.8rem; font-family: 'Courier New', monospace; color: var(--accent-green); }
+        .stat-unit { font-size: 0.9rem; color: #666; margin-left: 5px; }
+
+        /* ステータスバー */
+        .status-bar {
+            background: #111;
+            padding: 5px 20px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            color: #666;
+        }
+        #status-text { color: var(--accent-blue); font-weight: bold; }
+        #raw-data { font-family: monospace; }
+
+        /* p5.js キャンバスコンテナ */
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
     </style>
 </head>
 <body>
 
-<div class="controls">
-    <button class="btn-connect" onclick="connectBLE()">BLE 接続</button>
-    <button class="btn-disconnect" onclick="disconnectBLE()">接続解除</button>
-    <div class="status-area">
-        Status: <span id="status">切断済み</span><br>
-        Data: <span id="data-display">waiting...</span>
+<header>
+    <div class="title">TELEMETRY SYSTEM v2.0</div>
+    <div class="btn-group">
+        <button class="btn-connect" onclick="connectBLE()">CONNECT BLE</button>
+        <button onclick="disconnectBLE()">DISCONNECT</button>
+    </div>
+</header>
+
+<div class="dashboard">
+    <div class="panel">
+        <div class="panel-title">Realtime Stats</div>
+        <div class="stat-item">
+            <div class="stat-label">PITCH</div>
+            <div class="stat-value" id="val-pitch">0.00</div><span class="stat-unit">deg</span>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">ROLL</div>
+            <div class="stat-value" id="val-roll">0.00</div><span class="stat-unit">deg</span>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">LATERAL G (X)</div>
+            <div class="stat-value" id="val-accelX">0.00</div><span class="stat-unit">G</span>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">LONGITUDINAL G (Y)</div>
+            <div class="stat-value" id="val-accelY">0.00</div><span class="stat-unit">G</span>
+        </div>
+    </div>
+
+    <div id="canvas-container">
+        </div>
+
+    <div class="panel" style="gap: 10px;">
+        <div style="flex: 1;">
+            <div class="panel-title">G-G Diagram</div>
+            <div id="gg-container" style="height: 200px;"></div>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #333; width: 100%;">
+        <div style="flex: 1;">
+            <div class="panel-title">Z-Axis Vibration</div>
+            <div id="vib-container" style="height: 200px;"></div>
+        </div>
     </div>
 </div>
 
+<div class="status-bar">
+    <div>SYSTEM STATUS: <span id="status-text">DISCONNECTED</span></div>
+    <div id="raw-data">REC: ---</div>
+</div>
+
 <script>
-// --- BLE設定 ---
+// --- BLE Logic ---
 const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
 const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
 let device = null;
-let characteristic = null;
-
-// --- 受信データ保持用変数 ---
 let accelX = 0, accelY = 0, accelZ = 1.0; 
 let rollVal = 0, pitchVal = 0;
 let historyZ = [];
-const MAX_HISTORY = 100;
 
-// --- BLE関数 ---
 async function connectBLE() {
     try {
-        const statusEl = document.getElementById("status");
-        statusEl.innerText = "デバイス選択中...";
-        
-        device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [SERVICE_UUID] }]
+        const st = document.getElementById("status-text");
+        st.innerText = "SEARCHING...";
+        device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE_UUID] }] });
+        device.addEventListener('gattserverdisconnected', () => {
+            st.innerText = "DISCONNECTED";
+            st.style.color = "var(--accent-red)";
         });
-
-        device.addEventListener('gattserverdisconnected', onDisconnected);
-        
-        statusEl.innerText = "接続中...";
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(SERVICE_UUID);
-        characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-        await characteristic.startNotifications();
-        characteristic.addEventListener('characteristicvaluechanged', handleNotify);
-
-        statusEl.innerText = "接続完了";
-        statusEl.className = "status-connected";
+        const char = await service.getCharacteristic(CHARACTERISTIC_UUID);
+        await char.startNotifications();
+        char.addEventListener('characteristicvaluechanged', handleNotify);
+        st.innerText = "CONNECTED";
+        st.style.color = "var(--accent-green)";
     } catch (e) {
+        document.getElementById("status-text").innerText = "ERROR";
         console.error(e);
-        document.getElementById("status").innerText = "エラー: " + e.message;
-        document.getElementById("status").className = "status-error";
     }
 }
 
-function disconnectBLE() {
-    if (device && device.gatt.connected) {
-        device.gatt.disconnect();
-    }
-}
+function disconnectBLE() { if(device) device.gatt.disconnect(); }
 
-function onDisconnected() {
-    const statusEl = document.getElementById("status");
-    statusEl.innerText = "切断されました";
-    statusEl.className = "";
-}
-
-// データ受信とパース
 function handleNotify(event) {
-    const decoder = new TextDecoder();
-    const value = decoder.decode(event.target.value);
-    document.getElementById("data-display").innerText = value;
+    const value = new TextDecoder().decode(event.target.value);
+    document.getElementById("raw-data").innerText = "REC: " + value;
 
-    // フォーマット解析: X:1814,Y:1920,Z:2333,Roll: 7.70,Pitch: 7.61
-    // 正規表現で数値を抽出
-    const regX = /X:\s*(-?[\d.]+)/;
-    const regY = /Y:\s*(-?[\d.]+)/;
-    const regZ = /Z:\s*(-?[\d.]+)/;
-    const regRoll = /Roll:\s*(-?[\d.]+)/;
-    const regPitch = /Pitch:\s*(-?[\d.]+)/;
+    const mX = value.match(/X:\s*(-?[\d.]+)/);
+    const mY = value.match(/Y:\s*(-?[\d.]+)/);
+    const mZ = value.match(/Z:\s*(-?[\d.]+)/);
+    const mR = value.match(/Roll:\s*(-?[\d.]+)/);
+    const mP = value.match(/Pitch:\s*(-?[\d.]+)/);
 
-    const mX = value.match(regX);
-    const mY = value.match(regY);
-    const mZ = value.match(regZ);
-    const mR = value.match(regRoll);
-    const mP = value.match(regPitch);
+    if (mX) { accelX = parseFloat(mX[1]) / 1000; document.getElementById("val-accelX").innerText = accelX.toFixed(2); }
+    if (mY) { accelY = parseFloat(mY[1]) / 1000; document.getElementById("val-accelY").innerText = accelY.toFixed(2); }
+    if (mZ) { accelZ = parseFloat(mZ[1]) / 1000; }
+    if (mR) { rollVal = parseFloat(mR[1]); document.getElementById("val-roll").innerText = rollVal.toFixed(2); }
+    if (mP) { pitchVal = parseFloat(mP[1]); document.getElementById("val-pitch").innerText = pitchVal.toFixed(2); }
 
-    // 1000を1.0Gとして計算（スケーリング）
-    if (mX) accelX = parseFloat(mX[1]) / 1000;
-    if (mY) accelY = parseFloat(mY[1]) / 1000;
-    if (mZ) accelZ = parseFloat(mZ[1]) / 1000;
-    
-    // Roll/Pitchは度(degree)で来ていると想定
-    if (mR) rollVal = parseFloat(mR[1]);
-    if (mP) pitchVal = parseFloat(mP[1]);
-
-    // グラフ用履歴
     historyZ.push(accelZ);
-    if (historyZ.length > MAX_HISTORY) historyZ.shift();
+    if (historyZ.length > 100) historyZ.shift();
 }
 
-// --- p5.js 描画ロジック ---
+// --- p5.js Rendering ---
 function setup() {
-    createCanvas(windowWidth, windowHeight, WEBGL);
+    let canvas = createCanvas(windowWidth, windowHeight, WEBGL);
+    canvas.parent('canvas-container');
 }
 
 function draw() {
-    background(20);
-    let h = height / 3;
+    clear(); // 背景透過（CSSの背景色を活かす）
+    
+    // レイアウト計算用の基準値
+    let w = width;
+    let h = height;
 
-    // 1. 3D姿勢 (上段)
+    // --- 1. 3D姿勢 (中央) ---
     push();
-    translate(0, -h * 0.8, 0); 
+    // 画面中央付近に配置（サイドパネルを考慮）
+    translate(0, 0, 0); 
     draw3DPosture();
     pop();
 
-    // 2. G-Gダイアグラム (中段)
+    // --- 2. G-Gダイアグラム (右パネル上部) ---
+    // WEBGLの座標系(0,0=中心)から右パネルの位置へ移動
     push();
-    translate(0, 0, 0);
-    drawGGDiagram(h);
+    translate(w/2 - 150, -h/2 + 150, 0); 
+    drawGGDiagram(180);
     pop();
 
-    // 3. 振動グラフ (下段)
+    // --- 3. 振動グラフ (右パネル下部) ---
     push();
-    translate(0, h * 0.8, 0);
-    drawVibrationGraph(h);
+    translate(w/2 - 150, h/2 - 130, 0);
+    drawVibrationGraph(240, 120);
     pop();
 }
 
 function draw3DPosture() {
-    ambientLight(150); 
+    ambientLight(100);
     pointLight(255, 255, 255, 200, -200, 300);
-    
+    directionalLight(150, 150, 150, 0, 1, -1);
+
     push();
-    // 受信したRoll/Pitchを適用 (radiansに変換)
     rotateX(radians(pitchVal));
     rotateZ(radians(rollVal));
     
-    // 車体本体
-    fill(0, 120, 255);
-    stroke(255);
-    strokeWeight(1);
-    box(180, 25, 280); 
+    // 車体
+    fill(20, 40, 80);
+    stroke(0, 210, 255);
+    strokeWeight(1.5);
+    box(200, 30, 320); 
     
-    // フロント印
+    // 前方を示すアクセント
+    translate(0, -20, -140);
+    fill(0, 210, 255);
+    noStroke();
+    box(100, 10, 40);
+    pop();
+
+    // 地面のグリッド（遠近感用）
     push();
-    translate(0, -18, -120);
-    fill(255, 255, 0);
-    noStroke();
-    box(80, 15, 40);
-    pop();
-    pop();
-}
-
-function drawGGDiagram(h) {
-    noFill();
-    stroke(100);
-    strokeWeight(2);
-    
-    // 目標円 (1G円)
-    ellipse(0, 0, h * 0.6); 
-    line(-h/2, 0, h/2, 0);
-    line(0, -h/2, 0, h/2);
-
-    // 現在のG (X, Y)
-    // 感度調整のため0.3倍のスケーリング
-    let px = accelX * (h * 0.3);
-    let py = -accelY * (h * 0.3);
-    
-    fill(255, 50, 50);
-    noStroke();
-    ellipse(px, py, 20, 20);
-    
-    // テキスト表示
-    fill(200);
-    textSize(16);
-    textAlign(CENTER);
-    text("G-Force (X-Y)", 0, h/2 - 10);
-}
-
-function drawVibrationGraph(h) {
-    stroke(100, 100);
+    translate(0, 100, 0);
+    rotateX(HALF_PI);
+    stroke(30);
     strokeWeight(1);
-    line(-width/2 + 50, 0, width/2 - 50, 0);
+    for(let i=-500; i<=500; i+=50) {
+        line(i, -500, i, 500);
+        line(-500, i, 500, i);
+    }
+    pop();
+}
 
-    stroke(0, 255, 0);
-    strokeWeight(2);
+function drawGGDiagram(size) {
     noFill();
+    stroke(60);
+    ellipse(0, 0, size);
+    ellipse(0, 0, size * 0.5); // 0.5G line
+    line(-size/2, 0, size/2, 0);
+    line(0, -size/2, 0, size/2);
+
+    let px = accelX * (size / 2);
+    let py = -accelY * (size / 2);
+    
+    fill(255, 62, 62);
+    noStroke();
+    ellipse(px, py, 15, 15);
+}
+
+function drawVibrationGraph(gw, gh) {
+    stroke(60);
+    line(-gw/2, 0, gw/2, 0); // Base line (1.0G)
+
+    noFill();
+    stroke(57, 255, 20);
+    strokeWeight(2);
     beginShape();
     for (let i = 0; i < historyZ.length; i++) {
-        let x = map(i, 0, MAX_HISTORY, -width/2 + 50, width/2 - 50);
-        // 0.5G〜1.5Gの範囲を見やすく表示
-        let y = map(historyZ[i], 0.5, 1.5, h/2 - 40, -h/2 + 40);
+        let x = map(i, 0, 100, -gw/2, gw/2);
+        let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
         vertex(x, y);
     }
     endShape();
-    
-    fill(200);
-    noStroke();
-    textSize(16);
-    text("Vertical G (Z-Axis)", 0, h/2 - 10);
 }
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
 }
 </script>
-
 </body>
 </html>

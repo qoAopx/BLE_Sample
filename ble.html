@@ -136,17 +136,35 @@ function drawGG(size) {
 }
 
 function drawGraph(gw, gh) {
-    stroke(50); noFill();
-    rect(-gw/2, -gh/2, gw, gh);
-    stroke(0, 255, 0);
-    beginShape();
-    for (let i = 0; i < historyZ.length; i++) {
-        let x = map(i, 0, 50, -gw/2, gw/2);
-        let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
-        vertex(x, y);
+    // グラフの外枠
+    noFill(); 
+    stroke(60); 
+    strokeWeight(1);
+    rectMode(CENTER);
+    rect(0, 0, gw, gh);
+
+    // 1.0Gの中心線
+    stroke(100, 100, 150, 100);
+    line(-gw/2, 0, gw/2, 0);
+
+    // データの描画
+    if (historyZ.length > 1) {
+        stroke(50, 255, 100);
+        strokeWeight(2);
+        noFill();
+        beginShape();
+        for (let i = 0; i < historyZ.length; i++) {
+            // X軸：履歴のインデックスを枠幅にマッピング
+            let x = map(i, 0, MAX_HISTORY - 1, -gw/2, gw/2);
+            // Y軸：加速度Z(0.5G〜1.5G)を枠高さ(-gh/2〜gh/2)にマッピング
+            // map(値, 入力最小, 入力最大, 出力最小, 出力最大)
+            let y = map(historyZ[i], 0.5, 1.5, gh/2, -gh/2);
+            
+            // 描画値が枠を超えないように制限(constrain)
+            vertex(x, constrain(y, -gh/2, gh/2));
+        }
+        endShape();
     }
-    endShape();
-}
 
 function windowResized() {
     let container = document.getElementById('canvas-container');

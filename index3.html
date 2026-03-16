@@ -6,16 +6,16 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Telemetry Mobile - 3D Single View</title>
+    <title>RC Car Telemetry</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script src="sketch.js"></script>
     <style>
-      body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+      html,body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; width:100vw;height: 100vh; }
       header { height: 60px; display: flex; align-items: center; justify-content: space-around; background: #111; border-bottom: 1px solid #333; z-index: 100; }
       button { padding: 10px 20px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer; }
       .btn-c { background: #007bff; color: white; }
       .btn-d { background: #444; color: white; }
-      #canvas-container { flex: 1; width: 100%; position: relative; }
+      #canvas-container { flex: 1;width: 100vw;height: 100vh;display: block;position: relative; }
       footer { height: 50px; font-size: 11px; padding: 5px 15px; background: #111; color: #888; border-top: 1px solid #333; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
       #status { color: #00e1ff; font-weight: bold; }
       #count { font-family: monospace; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }

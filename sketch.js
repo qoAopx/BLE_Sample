@@ -91,10 +91,7 @@ function handleNotify(event) {
   if (mR) rollVal = parseFloat(mR[1]);
   if (mP) pitchVal = parseFloat(mP[1]);
 
-  let historyVal = Math.sqrt(
-    accelX * accelX + accelY * accelY + accelZ * accelZ
-  );
-  historyZ.push(historyVal);
+  historyZ.push(accelZ);
   if (historyZ.length > MAX_HISTORY) historyZ.shift();
 }
 

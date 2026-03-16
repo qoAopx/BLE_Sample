@@ -21,7 +21,6 @@ function preload() {
 }
 
 async function connectBLE() {
-  
   const status = document.getElementById("status");
   try {
     status.innerText = "SELECTING...";
@@ -33,12 +32,12 @@ async function connectBLE() {
     device.addEventListener("gattserverdisconnected", onDisconnected);
 
     status.innerText = "CONNECTING...";
-    
+
     // 重要：接続が完了するのを待つ
     const server = await device.gatt.connect();
     // 500msほど待機してみる
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     // 接続状態を二重チェック（GATT Serverが存在するか）
     if (!server || !server.connected) {
       throw new Error("GATT Server connection failed.");
@@ -46,13 +45,13 @@ async function connectBLE() {
 
     status.innerText = "GETTING SERVICE...";
     const service = await server.getPrimaryService(SERVICE_UUID);
-    
+
     status.innerText = "GETTING CHARACTERISTIC...";
     characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
 
     await characteristic.startNotifications();
     characteristic.addEventListener("characteristicvaluechanged", handleNotify);
-    
+
     status.innerText = "CONNECTED";
   } catch (e) {
     status.innerText = "ERROR: " + e.message;
@@ -66,10 +65,9 @@ function onDisconnected(event) {
   status.innerText = "DISCONNECTED";
   // 必要に応じて変数をクリア
   characteristic = null;
-  
+
   console.log("onDisconnected", event);
 }
-
 
 function disconnectBLE() {
   if (device) device.gatt.disconnect();
@@ -98,25 +96,23 @@ function handleNotify(event) {
 // --- 描画レイアウト (3Dのみを中央に配置) ---
 function setup() {
   let container = document.getElementById("canvas-container");
-  createCanvas(container.offsetWidth, container.offsetHeight, WEBGL).parent(
-    container
-  );
+  createCanvas(windowWidth, windowHeight - 120, WEBGL).parent(container);
 }
 
 function draw() {
-  background(15);
+  background(120);
 
   let h = height / 2;
 
   // --- 1. 3D姿勢 (上段) ---
   push();
-  translate(0, -h + 150, 0);
+  translate(0, -h + h / 1, 0);
   draw3DPosture();
   pop();
 
   // 3. 下段 (振動グラフ)
   push();
-  translate(0, h * 0.6, 0);
+  translate(0, h - h / 1, 0);
   // 枠のサイズを定義
   let graphW = width - 60;
   let graphH = h * 0.6;
@@ -136,7 +132,7 @@ function draw3DPosture() {
   scale(scaleFactor);
 
   // 姿勢回転
-  rotateX(radians(pitchVal) + Math.PI - (Math.PI / 6));
+  rotateX(radians(pitchVal) + Math.PI - Math.PI / 6);
   rotateZ(-radians(rollVal));
 
   // 2. 材質の設定
@@ -173,10 +169,9 @@ function drawGraph(gw, gh) {
       // Y軸：加速度Z(0.5G〜1.5G)を枠高さ(-gh/2〜gh/2)にマッピング
       // map(値, 入力最小, 入力最大, 出力最小, 出力最大)
       //let y = map(historyZ[i] * 1000, 0, 4096, 0, 200);
-      let y =(historyZ[i]*1000 - 2300) / 5;
-
+      let y = (historyZ[i] * 1000 - 2300) / 2;
       // 描画値が枠を超えないように制限(constrain)
-      vertex(x, y - 100);
+      vertex(x, y);
       //console.log(historyZ[i], y);
     }
     endShape();

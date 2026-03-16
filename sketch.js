@@ -100,7 +100,7 @@ function setup() {
 }
 
 function draw() {
-  background(120);
+  background(200, 230, 240);
 
   let h = height / 2;
 

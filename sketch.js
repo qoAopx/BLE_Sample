@@ -158,8 +158,8 @@ function drawGraph(gw, gh) {
 
   // 1.0Gの中心線
   stroke(100, 100, 150, 100);
-  strokeWeight(5);
-  line(-gw / 2, 30, gw / 2, 30);
+  //strokeWeight(5);
+  //line(-gw / 2, 30, gw / 2, 30);
 
   // データの描画
   if (historyZ.length > 1) {
@@ -172,11 +172,12 @@ function drawGraph(gw, gh) {
       let x = map(i, 0, MAX_HISTORY - 1, -gw / 2, gw / 2);
       // Y軸：加速度Z(0.5G〜1.5G)を枠高さ(-gh/2〜gh/2)にマッピング
       // map(値, 入力最小, 入力最大, 出力最小, 出力最大)
-      let y = map(historyZ[i] * 1000, 0, 4096, 0, 200);
+      //let y = map(historyZ[i] * 1000, 0, 4096, 0, 200);
+      let y =(historyZ[i]*1000 - 2300) / 5;
 
       // 描画値が枠を超えないように制限(constrain)
       vertex(x, y - 100);
-      // console.log(historyZ[i] * 1000, y);
+      //console.log(historyZ[i], y);
     }
     endShape();
   }

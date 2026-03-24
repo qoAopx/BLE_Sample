@@ -10,6 +10,14 @@ let accelX = 0,
   rollVal = 0,
   pitchVal = 0;
 
+// --- REC/PLAY設定 ---
+let isRecording = false;
+let isPlaying = false;
+let recordedData = []; // [{time: ms, raw: string}]
+let playIndex = 0;
+let recordingStartTime = 0;
+let playStartTime = 0;
+
 let historyZ = [];
 const MAX_HISTORY = 60;
 
@@ -73,8 +81,95 @@ function disconnectBLE() {
   if (device) device.gatt.disconnect();
 }
 
-function handleNotify(event) {
-  const val = new TextDecoder().decode(event.target.value);
+function toggleRec() {
+  const btnRec = document.getElementById("btn-rec");
+  const hiddenData = document.getElementById("hidden-data");
+
+  if (!isRecording) {
+    // 録画開始
+    isRecording = true;
+    if (isPlaying) togglePlay(); // 再生中なら停止
+
+    btnRec.innerText = "STOP";
+    btnRec.style.background = "#6c757d"; // グレーに変更
+
+    hiddenData.value = ""; // バッファ消去
+    recordedData = [];
+    recordingStartTime = performance.now();
+  } else {
+    // 録画停止
+    isRecording = false;
+    btnRec.innerText = "REC";
+    btnRec.style.background = "#dc3545"; // 元の赤色に戻す
+
+    // クリップボードにコピー
+    // p5.jsエディタ(iframe)などの環境でクリップボードAPIがブロックされる場合のフォールバック処理
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(hiddenData.value).then(() => {
+        console.log("Recorded data copied to clipboard.");
+      }).catch(err => {
+        console.warn("Clipboard API failed, trying fallback.", err);
+        fallbackCopyTextToClipboard(hiddenData.value);
+      });
+    } else {
+      fallbackCopyTextToClipboard(hiddenData.value);
+    }
+  }
+}
+
+function fallbackCopyTextToClipboard(text) {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  
+  // 画面スクロールを防ぐためのスタイル
+  textArea.style.top = "0";
+  textArea.style.left = "0";
+  textArea.style.position = "fixed";
+  
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  
+  try {
+    const successful = document.execCommand('copy');
+    if (successful) {
+      console.log('Fallback: Copying text command was successful.');
+    } else {
+      console.error('Fallback: Copying text command was unsuccessful.');
+    }
+  } catch (err) {
+    console.error('Fallback: Oops, unable to copy', err);
+  }
+  
+  document.body.removeChild(textArea);
+}
+
+function togglePlay() {
+  const btnPlay = document.getElementById("btn-play");
+
+  if (!isPlaying) {
+    // 再生開始
+    if (recordedData.length === 0) {
+      alert("記録データがありません");
+      return;
+    }
+    isPlaying = true;
+    if (isRecording) toggleRec(); // 録画中なら停止
+
+    btnPlay.innerText = "STOP";
+    btnPlay.style.background = "#6c757d"; // グレーに変更
+
+    playStartTime = performance.now();
+    playIndex = 0;
+  } else {
+    // 再生停止
+    isPlaying = false;
+    btnPlay.innerText = "PLAY";
+    btnPlay.style.background = "#28a745"; // 元の緑色に戻す
+  }
+}
+
+function parseDataAndApply(val) {
   document.getElementById("count").innerText = val;
 
   const mX = val.match(/X:\s*(-?[\d.]+)/);
@@ -93,6 +188,24 @@ function handleNotify(event) {
   if (historyZ.length > MAX_HISTORY) historyZ.shift();
 }
 
+function handleNotify(event) {
+  const val = new TextDecoder().decode(event.target.value);
+  
+  if (isRecording) {
+    const elapsed = performance.now() - recordingStartTime;
+    const timeStr = `[${elapsed.toFixed(2)}]`;
+    const recordStr = `${timeStr} ${val}\n`;
+    
+    document.getElementById("hidden-data").value += recordStr;
+    recordedData.push({ time: elapsed, raw: val });
+  }
+
+  // リアルタイム反映（再生中以外）
+  if (!isPlaying) {
+    parseDataAndApply(val);
+  }
+}
+
 // --- 描画レイアウト (3Dのみを中央に配置) ---
 function setup() {
   let container = document.getElementById("canvas-container");
@@ -101,6 +214,21 @@ function setup() {
 
 function draw() {
   background(64, 128, 200);
+
+  // --- 再生処理 ---
+  if (isPlaying && recordedData.length > 0) {
+    let currentPlayTime = performance.now() - playStartTime;
+    // 時間が追いつくまでデータを適用
+    while (playIndex < recordedData.length && recordedData[playIndex].time <= currentPlayTime) {
+      parseDataAndApply(recordedData[playIndex].raw);
+      playIndex++;
+    }
+    // ループ
+    if (playIndex >= recordedData.length) {
+      playStartTime = performance.now();
+      playIndex = 0;
+    }
+  }
 
   let h = height / 2;
 

@@ -10,6 +10,13 @@ let accelX = 0,
   rollVal = 0,
   pitchVal = 0;
 
+let displayRoll = 0,
+  displayPitch = 0,
+  isFirstData = true;
+
+let isIntentionalDisconnect = false;
+let currentValString = "-";
+
 // --- REC/PLAY設定 ---
 let isRecording = false;
 let isPlaying = false;
@@ -30,6 +37,7 @@ function preload() {
 
 async function connectBLE() {
   const status = document.getElementById("status");
+  isIntentionalDisconnect = false;
   try {
     status.innerText = "SELECTING...";
     device = await navigator.bluetooth.requestDevice({
@@ -70,14 +78,41 @@ async function connectBLE() {
 // 切断時の処理を関数として独立させる
 function onDisconnected(event) {
   const status = document.getElementById("status");
-  status.innerText = "DISCONNECTED";
-  // 必要に応じて変数をクリア
   characteristic = null;
-
   console.log("onDisconnected", event);
+
+  if (isIntentionalDisconnect) {
+    status.innerText = "DISCONNECTED";
+  } else {
+    status.innerText = "LOST CONNECTION. RECONNECTING...";
+    setTimeout(reconnectBLE, 2000); // 2秒後に再接続スタート
+  }
+}
+
+async function reconnectBLE() {
+  if (!device || isIntentionalDisconnect) return;
+  const status = document.getElementById("status");
+  try {
+    status.innerText = "RECONNECTING...";
+    const server = await device.gatt.connect();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+    await characteristic.startNotifications();
+    characteristic.addEventListener("characteristicvaluechanged", handleNotify);
+    
+    status.innerText = "CONNECTED (RECOVERED)";
+    console.log("Auto-reconnect successful.");
+  } catch (e) {
+    console.error("Auto-reconnect failed.", e);
+    status.innerText = "RETRYING CONNECTION...";
+    setTimeout(reconnectBLE, 3000); // 失敗したら3秒後に再試行
+  }
 }
 
 function disconnectBLE() {
+  isIntentionalDisconnect = true;
   if (device) device.gatt.disconnect();
 }
 
@@ -170,7 +205,7 @@ function togglePlay() {
 }
 
 function parseDataAndApply(val) {
-  document.getElementById("count").innerText = val;
+  currentValString = val;
 
   const mX = val.match(/X:\s*(-?[\d.]+)/);
   const mY = val.match(/Y:\s*(-?[\d.]+)/);
@@ -246,6 +281,8 @@ function draw() {
   let graphH = h * 0.6;
   drawGraph(graphW, graphH);
   pop();
+
+  document.getElementById("count").innerText = currentValString;
 }
 
 function draw3DPosture() {
@@ -260,8 +297,42 @@ function draw3DPosture() {
   scale(scaleFactor);
 
   // 姿勢回転
-  rotateX(radians(pitchVal) + Math.PI - Math.PI / 6);
-  rotateZ(-radians(rollVal));
+  if (isFirstData && (rollVal !== 0 || pitchVal !== 0)) {
+    displayRoll = rollVal;
+    displayPitch = pitchVal;
+    isFirstData = false;
+  }
+
+  // 角度の差を -180 ~ +180 に正規化する関数
+  function normalizeAngleDiff(target, current) {
+    let diff = target - current;
+    while (diff < -180) diff += 360;
+    while (diff > 180) diff -= 360;
+    return diff;
+  }
+
+  let diffPitch = normalizeAngleDiff(pitchVal, displayPitch);
+  let diffRoll = normalizeAngleDiff(rollVal, displayRoll);
+
+  // ジャンプ時の衝撃などで発生する極端なスパイク（ノイズ）を無視・制限する
+  // 1フレームでの最大変化角度
+  const MAX_DELTA = 15; 
+  diffPitch = constrain(diffPitch, -MAX_DELTA, MAX_DELTA);
+  diffRoll = constrain(diffRoll, -MAX_DELTA, MAX_DELTA);
+
+  // ローパスフィルタで滑らかに追従させる（0.0〜1.0）
+  const LPF_ALPHA = 0.2;
+  displayPitch += diffPitch * LPF_ALPHA;
+  displayRoll += diffRoll * LPF_ALPHA;
+
+  // 範囲を -180 ~ +180 に保つ
+  while(displayPitch <= -180) displayPitch += 360;
+  while(displayPitch > 180) displayPitch -= 360;
+  while(displayRoll <= -180) displayRoll += 360;
+  while(displayRoll > 180) displayRoll -= 360;
+
+  rotateX(radians(displayPitch) + Math.PI - Math.PI / 6);
+  rotateZ(-radians(displayRoll));
 
   // 2. 材質の設定
   noStroke(); // 網目（ワイヤーフレーム）を消す

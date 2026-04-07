@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>RC Lap Timer Receiver</title>
+  <style>
+    body {
+      margin: 0;
+      background: #121212;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #1f1f1f;
+      padding: 15px;
+      border-bottom: 1px solid #333;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      font-weight: bold;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-connect {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-disconnect {
+      background: #444;
+      color: white;
+    }
+
+    .btn-copy {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-clear {
+      background: #dc3545;
+      color: white;
+    }
+
+    #best-lap-display {
+      background: #000;
+      text-align: center;
+      padding: 20px;
+      margin: 10px;
+      border: 2px solid #00e1ff;
+      border-radius: 10px;
+    }
+
+    .label {
+      font-size: 14px;
+      color: #00e1ff;
+      margin-bottom: 5px;
+    }
+
+    .time {
+      font-size: 48px;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    #table-container {
+      flex: 1;
+      overflow-y: auto;
+      margin: 0 10px 10px;
+      background: #1f1f1f;
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #333;
+      padding: 10px;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #333;
+      font-family: monospace;
+      font-size: 18px;
+    }
+
+    tr:nth-child(1) td {
+      color: #ffff00;
+    }
+
+    /* 最新の行を強調 */
+
+    footer {
+      padding: 5px 15px;
+      background: #111;
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+    }
+
+    #status {
+      color: #00e1ff;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="btn-group">
+      <button class="btn-connect" onclick="connectBLE()">CONNECT</button>
+      <button class="btn-disconnect" onclick="disconnectBLE()">DISCONNECT</button>
+    </div>
+    <div class="btn-group">
+      <button class="btn-copy" onclick="copyLaps()">COPY</button>
+      <button class="btn-clear" onclick="clearData()">CLEAR</button>
+    </div>
+  </header>
+
+  <div id="best-lap-display">
+    <div class="label">BEST LAP</div>
+    <div id="best-time" class="time">--:--.--</div>
+  </div>
+
+  <div id="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>No.</th>
+          <th>LAP TIME</th>
+        </tr>
+      </thead>
+      <tbody id="lap-list">
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    STATUS: <span id="status">READY</span>
+  </footer>
+
+  <script src="sketch_laptimer.js"></script>
+</body>
+
+</html>

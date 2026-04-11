@@ -59,19 +59,32 @@
       color: white;
     }
 
-    #best-lap-display {
+    /* ベストラップと最新ラップの共通スタイル */
+    .lap-box {
       background: #000;
       text-align: center;
-      padding: 20px;
-      margin: 10px;
-      border: 2px solid #00e1ff;
+      padding: 15px;
+      margin: 5px 10px;
       border-radius: 10px;
+    }
+
+    #best-lap-display {
+      border: 2px solid #00e1ff;
+      margin-top: 10px;
+    }
+
+    #current-lap-display {
+      border: 2px solid #ffff00; /* 最新ラップは黄色で強調 */
     }
 
     .label {
       font-size: 14px;
       color: #00e1ff;
       margin-bottom: 5px;
+    }
+
+    #current-lap-display .label {
+      color: #ffff00;
     }
 
     .time {
@@ -83,7 +96,7 @@
     #table-container {
       flex: 1;
       overflow-y: auto;
-      margin: 0 10px 10px;
+      margin: 5px 10px 10px;
       background: #1f1f1f;
       border-radius: 10px;
     }
@@ -113,8 +126,6 @@
       color: #ffff00;
     }
 
-    /* 最新の行を強調 */
-
     footer {
       padding: 5px 15px;
       background: #111;
@@ -142,9 +153,14 @@
     </div>
   </header>
 
-  <div id="best-lap-display">
+  <div id="best-lap-display" class="lap-box">
     <div class="label">BEST LAP</div>
     <div id="best-time" class="time">--:--.--</div>
+  </div>
+
+  <div id="current-lap-display" class="lap-box">
+    <div class="label">CURRENT LAP</div>
+    <div id="current-time" class="time">--:--.--</div>
   </div>
 
   <div id="table-container">

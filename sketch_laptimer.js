@@ -57,6 +57,9 @@ function handleNotify(event) {
 function addLap(time) {
   lapTimes.unshift(time);
 
+  // 最新のラップタイムを表示
+  document.getElementById("current-time").innerText = formatTime(time);
+
   if (time < bestLap) {
     bestLap = time;
     document.getElementById("best-time").innerText = formatTime(bestLap);
@@ -149,6 +152,7 @@ function clearData() {
     lapTimes = [];
     bestLap = Infinity;
     document.getElementById("best-time").innerText = "--:--.--";
+    document.getElementById("current-time").innerText = "--:--.--"; // 最新表示もクリア
     document.getElementById("lap-list").innerHTML = "";
   }
 }

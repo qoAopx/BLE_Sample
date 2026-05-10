@@ -59,7 +59,7 @@
       color: white;
     }
 
-    /* ベストラップと最新ラップの共通スタイル */
+    /* ラップボックスの基本スタイル */
     .lap-box {
       background: #000;
       text-align: center;
@@ -68,13 +68,31 @@
       border-radius: 10px;
     }
 
+    /* 統計用（LAPS/AVG）のレイアウト */
+    .stats-container {
+      display: flex;
+      gap: 10px;
+      margin: 5px 10px;
+    }
+
+    .stats-container .lap-box {
+      flex: 1;
+      margin: 0; /* 親要素のgapで制御するため */
+      padding: 10px;
+    }
+
     #best-lap-display {
       border: 2px solid #00e1ff;
       margin-top: 10px;
     }
 
     #current-lap-display {
-      border: 2px solid #ffff00; /* 最新ラップは黄色で強調 */
+      border: 2px solid #ffff00;
+    }
+
+    /* 統計ブロックは少し控えめな色 */
+    .stats-box {
+      border: 1px solid #888;
     }
 
     .label {
@@ -87,8 +105,19 @@
       color: #ffff00;
     }
 
+    .stats-box .label {
+      color: #ccc;
+    }
+
     .time {
       font-size: 48px;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    /* 統計用フォントサイズ調整 */
+    .time-sub {
+      font-size: 28px;
       font-family: monospace;
       font-weight: bold;
     }
@@ -161,6 +190,17 @@
   <div id="current-lap-display" class="lap-box">
     <div class="label">CURRENT LAP</div>
     <div id="current-time" class="time">--:--.--</div>
+  </div>
+
+  <div class="stats-container">
+    <div class="lap-box stats-box">
+      <div class="label">LAPS</div>
+      <div id="lap-count" class="time-sub">0</div>
+    </div>
+    <div class="lap-box stats-box">
+      <div class="label">AVERAGE</div>
+      <div id="avg-time" class="time-sub">--:--.--</div>
+    </div>
   </div>
 
   <div id="table-container">

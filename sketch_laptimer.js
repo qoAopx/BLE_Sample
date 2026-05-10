@@ -60,9 +60,12 @@ function addLap(time) {
   // 最新のラップタイムを表示
   document.getElementById("current-time").innerText = formatTime(time);
 
-  if (time < bestLap) {
-    bestLap = time;
-    document.getElementById("best-time").innerText = formatTime(bestLap);
+  // 初回計測(No.1)以外の場合のみベストタイム判定
+  if (lapTimes.length > 1) {
+    if (time < bestLap) {
+      bestLap = time;
+      document.getElementById("best-time").innerText = formatTime(bestLap);
+    }
   }
 
   // 統計情報（LAPS/AVERAGE）を更新
@@ -73,18 +76,23 @@ function addLap(time) {
 
 // 統計情報の計算と表示更新
 function updateStats() {
-  const count = lapTimes.length;
+  const dataCount = lapTimes.length;
   const lapCountElem = document.getElementById("lap-count");
   const avgTimeElem = document.getElementById("avg-time");
 
+  // ラップ数はデータ数 - 1 (スタートのみの時は0)
+  const displayLaps = Math.max(0, dataCount - 1);
   if (lapCountElem) {
-    lapCountElem.innerText = count;
+    lapCountElem.innerText = displayLaps;
   }
 
   if (avgTimeElem) {
-    if (count > 0) {
-      const sum = lapTimes.reduce((a, b) => a + b, 0);
-      const avg = sum / count;
+    // 2つ以上のデータがある場合（No.2以降がある場合）のみ平均を計算
+    if (dataCount > 1) {
+      // 一番古い(最後の)データ(No.1)を除外して計算
+      const lapsToAverage = lapTimes.slice(0, -1);
+      const sum = lapsToAverage.reduce((a, b) => a + b, 0);
+      const avg = sum / lapsToAverage.length;
       avgTimeElem.innerText = formatTime(avg);
     } else {
       avgTimeElem.innerText = "--:--.--";
@@ -109,7 +117,7 @@ function updateTable() {
 function formatTime(sec) {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
-  const cs = Math.floor((sec * 100) % 100); // ミリ秒（1/100秒）の計算
+  const cs = Math.floor((sec * 100) % 100);
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
 }
 
@@ -128,7 +136,6 @@ function copyLaps() {
     .map((t, i) => `Lap ${i + 1}: ${formatTime(t)}`)
     .join("\n");
 
-  // 1. まずは通常のAPIを試す
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text).then(() => {
       alert("コピーしました (Clipboard API)");
@@ -137,7 +144,6 @@ function copyLaps() {
       fallbackCopyTextToClipboard(text);
     });
   } else {
-    // 2. APIが使えない環境なら直接フォールバック
     fallbackCopyTextToClipboard(text);
   }
 }
@@ -172,11 +178,9 @@ function clearData() {
     lapTimes = [];
     bestLap = Infinity;
     
-    // 基本表示のリセット
     document.getElementById("best-time").innerText = "--:--.--";
     document.getElementById("current-time").innerText = "--:--.--";
     
-    // 追加した統計表示のリセット
     const lapCountElem = document.getElementById("lap-count");
     const avgTimeElem = document.getElementById("avg-time");
     if (lapCountElem) lapCountElem.innerText = "0";

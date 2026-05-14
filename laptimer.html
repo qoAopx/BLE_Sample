@@ -41,10 +41,25 @@
       font-size: 14px;
     }
 
-    .btn-connect { background: #007bff; color: white; }
-    .btn-disconnect { background: #444; color: white; }
-    .btn-copy { background: #28a745; color: white; }
-    .btn-clear { background: #dc3545; color: white; }
+    .btn-connect {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-disconnect {
+      background: #444;
+      color: white;
+    }
+
+    .btn-copy {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-clear {
+      background: #dc3545;
+      color: white;
+    }
 
     #camera-container {
       margin: 10px;
@@ -64,11 +79,17 @@
       background: #222;
     }
 
-    .btn-camera { background: #f39c12; color: white; }
+    .btn-camera {
+      background: #f39c12;
+      color: white;
+    }
 
     #shutter-flash {
       position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: white;
       opacity: 0;
       pointer-events: none;
@@ -95,21 +116,49 @@
       padding: 10px;
     }
 
-    #best-lap-display { border: 2px solid #00e1ff; }
-    #current-lap-display { border: 2px solid #ffff00; }
-    .stats-box { border: 1px solid #888; }
+    #best-lap-display {
+      border: 2px solid #00e1ff;
+    }
 
-    .label { font-size: 14px; color: #00e1ff; margin-bottom: 5px; }
-    #current-lap-display .label { color: #ffff00; }
-    .stats-box .label { color: #ccc; }
+    #current-lap-display {
+      border: 2px solid #ffff00;
+    }
 
-    .time { font-size: 48px; font-family: monospace; font-weight: bold; }
-    .time-sub { font-size: 28px; font-family: monospace; font-weight: bold; }
+    .stats-box {
+      border: 1px solid #888;
+    }
+
+    .label {
+      font-size: 14px;
+      color: #00e1ff;
+      margin-bottom: 5px;
+    }
+
+    #current-lap-display .label {
+      color: #ffff00;
+    }
+
+    .stats-box .label {
+      color: #ccc;
+    }
+
+    .time {
+      font-size: 48px;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    .time-sub {
+      font-size: 28px;
+      font-family: monospace;
+      font-weight: bold;
+    }
 
     /* 写真履歴のスタイル（追加） */
     #photo-history {
       display: grid;
-      grid-template-columns: 1fr 1fr; /* 半分サイズで横に2枚並べる */
+      grid-template-columns: 1fr 1fr;
+      /* 半分サイズで横に2枚並べる */
       gap: 10px;
       margin: 10px;
     }
@@ -147,7 +196,9 @@
       font-size: 18px;
     }
 
-    tr:nth-child(1) td { color: #ffff00; }
+    tr:nth-child(1) td {
+      color: #ffff00;
+    }
 
     footer {
       padding: 20px 15px;
@@ -157,7 +208,10 @@
       text-align: center;
     }
 
-    #status { color: #00e1ff; font-weight: bold; }
+    #status {
+      color: #00e1ff;
+      font-weight: bold;
+    }
   </style>
 </head>
 
@@ -220,7 +274,7 @@
     STATUS: <span id="status">READY</span>
   </footer>
 
-  <script src="sketch_laptimer.js"></script>
+  <script src="laptimer.js"></script>
 </body>
 
 </html>

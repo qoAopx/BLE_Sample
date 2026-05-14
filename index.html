@@ -1,91 +1,75 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
+
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ESP32 BLE Monitor</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RC Car BLE Web Apps</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 40px 20px;
+      background-color: #121212;
+      color: #ffffff;
+    }
 
-<style>
-body{
-font-family:sans-serif;
-text-align:center;
-margin-top:40px;
-}
+    h1 {
+      margin-bottom: 40px;
+      color: #00e1ff;
+    }
 
-button{
-font-size:22px;
-padding:12px 24px;
-}
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 400px;
+      margin: 0 auto;
+    }
 
-#status{
-font-size:24px;
-margin-top:30px;
-}
-</style>
+    .menu-item {
+      display: block;
+      padding: 20px;
+      background-color: #1f1f1f;
+      border: 1px solid #333;
+      border-radius: 10px;
+      text-decoration: none;
+      color: #ffffff;
+      transition: background-color 0.2s, transform 0.1s;
+    }
 
+    .menu-item:hover {
+      background-color: #2a2a2a;
+      transform: translateY(-2px);
+    }
+
+    .menu-item h2 {
+      margin: 0 0 10px 0;
+      color: #ffff00;
+      font-size: 24px;
+    }
+
+    .menu-item p {
+      margin: 0;
+      font-size: 14px;
+      color: #ccc;
+    }
+  </style>
 </head>
 
 <body>
-
-<h2>ESP32 BLE Monitor</h2>
-
-<button onclick="connect()">CONNECT</button>
-
-<div id="status">waiting</div>
-
-<script>
-
-const SERVICE_UUID = "12345678-1234-1234-1234-1234567890ab";
-const CHARACTERISTIC_UUID = "abcdefab-1234-5678-1234-abcdefabcdef";
-
-let characteristic;
-
-async function connect(){
-
- try{
-
-  document.getElementById("status").innerText="select device";
-
-  const device = await navigator.bluetooth.requestDevice({
-   filters:[{services:[SERVICE_UUID]}]
-  });
-
-  document.getElementById("status").innerText="connecting";
-
-  const server = await device.gatt.connect();
-
-  const service = await server.getPrimaryService(SERVICE_UUID);
-
-  characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
-
-  await characteristic.startNotifications();
-
-  characteristic.addEventListener(
-   'characteristicvaluechanged',
-   handleNotify
-  );
-
-  document.getElementById("status").innerText="connected";
-
- }
- catch(e){
-
-  document.getElementById("status").innerText="error "+e;
-
- }
-
-}
-
-function handleNotify(event){
-
- const decoder = new TextDecoder();
-
- const value = decoder.decode(event.target.value);
-
- document.getElementById("status").innerText=value;
-
-}
-
-</script>
-
+  <h1>RC Car BLE Web Apps</h1>
+  <div class="menu">
+    <a href="telemetry.html" class="menu-item">
+      <h2>Telemetry</h2>
+      <p>センサーデータ・走行データのリアルタイム可視化</p>
+    </a>
+    <a href="laptimer.html" class="menu-item">
+      <h2>Lap Timer</h2>
+      <p>自動撮影機能付きラップタイム計測</p>
+    </a>
+  </div>
 </body>
+
 </html>

@@ -7,6 +7,12 @@ let characteristic = null;
 let lapTimes = [];
 let bestLap = Infinity;
 
+// --- カメラ用変数 ---
+let stream = null;
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const flash = document.getElementById('shutter-flash');
+
 // --- BLE通信ロジック ---
 async function connectBLE() {
   const status = document.getElementById("status");
@@ -40,6 +46,56 @@ function disconnectBLE() {
   if (device) device.gatt.disconnect();
 }
 
+// --- カメラ制御ロジック ---
+async function toggleCamera() {
+  const btn = document.getElementById('camera-btn');
+  if (!stream) {
+    try {
+      // 背面カメラを優先的に起動
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+        audio: false
+      });
+      video.srcObject = stream;
+      btn.innerText = "STOP CAMERA";
+      btn.style.background = "#555";
+    } catch (err) {
+      alert("カメラの起動に失敗しました: " + err);
+    }
+  } else {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+    video.srcObject = null;
+    btn.innerText = "START CAMERA";
+    btn.style.background = "#f39c12";
+  }
+}
+
+// 自動撮影と保存
+function takePhoto(lapNum) {
+  if (!stream) return;
+
+  // フラッシュ演出
+  flash.style.opacity = 1;
+  setTimeout(() => flash.style.opacity = 0, 100);
+
+  const context = canvas.getContext('2d');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // タイムスタンプを画像に描画（任意）
+  context.font = "bold 40px monospace";
+  context.fillStyle = "yellow";
+  context.fillText(`LAP ${lapNum}: ${document.getElementById("current-time").innerText}`, 30, canvas.height - 30);
+
+  // 画像としてダウンロード
+  const link = document.createElement('a');
+  link.download = `lap_${lapNum}_${new Date().getTime()}.png`;
+  link.href = canvas.toDataURL();
+  link.click();
+}
+
 // --- データ受信・解析 ---
 function handleNotify(event) {
   const val = new TextDecoder().decode(event.target.value);
@@ -66,6 +122,8 @@ function addLap(time) {
       bestLap = time;
       document.getElementById("best-time").innerText = formatTime(bestLap);
     }
+        // No.2以降（実ラップ）の時に自動撮影を実行
+    takePhoto(lapTimes.length-1);
   }
 
   // 統計情報（LAPS/AVERAGE）を更新
@@ -177,15 +235,15 @@ function clearData() {
   if (confirm("データをすべて消去しますか？")) {
     lapTimes = [];
     bestLap = Infinity;
-    
+
     document.getElementById("best-time").innerText = "--:--.--";
     document.getElementById("current-time").innerText = "--:--.--";
-    
+
     const lapCountElem = document.getElementById("lap-count");
     const avgTimeElem = document.getElementById("avg-time");
     if (lapCountElem) lapCountElem.innerText = "0";
     if (avgTimeElem) avgTimeElem.innerText = "--:--.--";
-    
+
     document.getElementById("lap-list").innerHTML = "";
   }
 }
